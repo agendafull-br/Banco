@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGClient - Gestão de Clientes</title>
+
+    <!-- Firebase SDKs (compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js">
+    </script>
+
+    <style>
+        :root {
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --surface-alt: #f8fafc;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --primary: #4f46e5;
+            --primary-light: #eef2ff;
+            --primary-hover: #4338ca;
+            --success: #10b981;
+            --success-light: #ecfdf5;
+            --warning: #f59e0b;
+            --warning-light: #fffbeb;
+            --danger: #ef4444;
+            --danger-light: #fef2f2;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.08);
+            --radius-sm: 8px;
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ========== LOGIN OVERLAY ========== */
+        .login-overlay {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #1e1b4b 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.4s, visibility 0.4s;
+        }
+        .login-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .login-card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 40px 36px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: var(--shadow-lg);
+            text-align: center;
+        }
+        .login-card .logo-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--primary);
+            border-radius: var(--radius);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            font-size: 28px;
+            color: #fff;
+        }
+        .login-card h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--text);
+        }
+        .login-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+        .login-card .form-group {
+            text-align: left;
+            margin-bottom: 16px;
+        }
+        .login-card label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+        .login-card input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            transition: var(--transition);
+            background: var(--surface-alt);
+            color: var(--text);
+        }
+        .login-card input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+            background: #fff;
+        }
+        .login-card .btn-login {
+            width: 100%;
+            padding: 13px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 8px;
+            letter-spacing: 0.3px;
+        }
+        .login-card .btn-login:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+        .login-card .btn-login:active {
+            transform: translateY(0);
+        }
+        .login-error {
+            color: var(--danger);
+            font-size: 0.85rem;
+            margin-top: 10px;
+            min-height: 20px;
+            font-weight: 500;
+        }
+        .login-toggle {
+            margin-top: 16px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            text-decoration: underline;
+            transition: var(--transition);
+        }
+        .login-toggle:hover {
+            color: var(--primary);
+        }
+
+        /* ========== MAIN APP ========== */
+        .app-container {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 20px 24px;
+            display: none;
+        }
+        .app-container.visible {
+            display: block;
+        }
+
+        /* Header */
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .app-header .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .app-header .brand .icon {
+            width: 42px;
+            height: 42px;
+            background: var(--primary);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 20px;
+        }
+        .app-header .brand h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 18px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            white-space: nowrap;
+            letter-spacing: 0.2px;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-1px);
+        }
+        .btn-outline {
+            background: #fff;
+            color: var(--text);
+            border: 2px solid var(--border);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+        .btn-danger {
+            background: #fff;
+            color: var(--danger);
+            border: 2px solid #fecaca;
+        }
+        .btn-danger:hover {
+            background: var(--danger-light);
+            border-color: var(--danger);
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border-radius: 6px;
+        }
+        .btn-xs {
+            padding: 4px 10px;
+            font-size: 0.75rem;
+            border-radius: 5px;
+        }
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+        }
+        .btn-success:hover {
+            background: #059669;
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Stats Row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .stat-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+        .stat-card .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+        .stat-card .stat-icon.blue {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .stat-card .stat-icon.green {
+            background: var(--success-light);
+            color: var(--success);
+        }
+        .stat-card .stat-icon.red {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+        .stat-card .stat-icon.amber {
+            background: var(--warning-light);
+            color: var(--warning);
+        }
+        .stat-card .stat-info .stat-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .stat-card .stat-info .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+            font-weight: 500;
+        }
+
+        /* Table Container */
+        .table-container {
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .table-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface-alt);
+        }
+        .table-toolbar .search-input {
+            padding: 9px 14px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            width: 280px;
+            transition: var(--transition);
+            background: #fff;
+        }
+        .table-toolbar .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
+        }
+        .table-toolbar .filter-select {
+            padding: 9px 14px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            background: #fff;
+            cursor: pointer;
+        }
+        .table-wrapper {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 900px;
+        }
+        table thead {
+            background: var(--surface-alt);
+        }
+        table thead th {
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+        table tbody td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+            vertical-align: middle;
+        }
+        table tbody tr {
+            transition: var(--transition);
+        }
+        table tbody tr:hover {
+            background: #f8fafc;
+        }
+        table tbody tr.row-overdue {
+            background: #fef2f2;
+            border-left: 3px solid var(--danger);
+        }
+        table tbody tr.row-overdue:hover {
+            background: #fee2e2;
+        }
+        table tbody tr.row-pending {
+            background: #fffbeb;
+            border-left: 3px solid var(--warning);
+        }
+        table tbody tr.row-pending:hover {
+            background: #fef3c7;
+        }
+        table tbody tr.row-ok {
+            border-left: 3px solid var(--success);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+        }
+        .badge-success {
+            background: var(--success-light);
+            color: #065f46;
+        }
+        .badge-warning {
+            background: var(--warning-light);
+            color: #92400e;
+        }
+        .badge-danger {
+            background: var(--danger-light);
+            color: #991b1b;
+        }
+        .badge-info {
+            background: var(--primary-light);
+            color: #3730a3;
+        }
+
+        .whatsapp-link {
+            color: #25d366;
+            text-decoration: none;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+        .whatsapp-link:hover {
+            text-decoration: underline;
+            color: #128c7e;
+        }
+
+        .actions-cell {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            padding: 32px 28px;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: var(--shadow-lg);
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: translateY(20px);
+            transition: transform 0.3s;
+        }
+        .modal-overlay.active .modal {
+            transform: translateY(0);
+        }
+        .modal h3 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+        .modal .form-group {
+            margin-bottom: 16px;
+            text-align: left;
+        }
+        .modal label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        .modal input,
+        .modal select {
+            width: 100%;
+            padding: 11px 14px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            transition: var(--transition);
+            background: #f9fafb;
+        }
+        .modal input:focus,
+        .modal select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
+            background: #fff;
+        }
+        .modal .plan-detail {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        .modal .btn-row {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .toast {
+            padding: 14px 20px;
+            border-radius: var(--radius-sm);
+            color: #fff;
+            font-weight: 600;
+            font-size: 0.9rem;
+            box-shadow: var(--shadow-lg);
+            animation: slideIn 0.35s ease;
+            max-width: 400px;
+        }
+        .toast.success {
+            background: #059669;
+        }
+        .toast.error {
+            background: #dc2626;
+        }
+        .toast.info {
+            background: #4f46e5;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(120%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: var(--text-secondary);
+        }
+        .empty-state .empty-icon {
+            font-size: 56px;
+            margin-bottom: 12px;
+        }
+        .empty-state p {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        /* Confirm dialog */
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2500;
+            opacity: 0;
+            visibility: hidden;
+            transition: 0.2s;
+        }
+        .confirm-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .confirm-dialog {
+            background: #fff;
+            border-radius: var(--radius);
+            padding: 28px 24px;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+            max-width: 400px;
+            width: 90%;
+        }
+        .confirm-dialog h4 {
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+        .confirm-dialog p {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+        .confirm-dialog .btn-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .app-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .stats-row {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            .stat-card {
+                padding: 14px 16px;
+            }
+            .stat-card .stat-value {
+                font-size: 1.2rem;
+            }
+            .table-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .table-toolbar .search-input {
+                width: 100%;
+            }
+            .modal {
+                padding: 20px 16px;
+                max-width: 95vw;
+            }
+            .btn {
+                padding: 8px 14px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ==================== LOGIN OVERLAY ==================== -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-card">
+            <div class="logo-icon">🔐</div>
+            <h1>SGClient</h1>
+            <p id="loginSubtitle">Faça login para acessar o sistema</p>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="loginEmail" placeholder="seu@email.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label>Senha</label>
+                <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+            </div>
+            <button class="btn-login" id="btnLogin">Entrar</button>
+            <div class="login-error" id="loginError"></div>
+            <div class="login-toggle" id="loginToggle">📝 Criar conta de administrador</div>
+        </div>
+    </div>
+
+    <!-- ==================== MAIN APP ==================== -->
+    <div class="app-container" id="appContainer">
+        <!-- Header -->
+        <div class="app-header">
+            <div class="brand">
+                <div class="icon">📊</div>
+                <h2>Gestão de Clientes</h2>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" id="btnAddClient">➕ Novo Cliente</button>
+                <button class="btn btn-outline" id="btnLogout">🚪 Sair</button>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-icon blue">👥</div>
+                <div class="stat-info">
+                    <div class="stat-value" id="statTotal">0</div>
+                    <div class="stat-label">Total de Clientes</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green">✅</div>
+                <div class="stat-info">
+                    <div class="stat-value" id="statEmDia">0</div>
+                    <div class="stat-label">Em Dia</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon red">⚠️</div>
+                <div class="stat-info">
+                    <div class="stat-value" id="statAtrasados">0</div>
+                    <div class="stat-label">Com Atraso</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon amber">💰</div>
+                <div class="stat-info">
+                    <div class="stat-value" id="statReceita">R$ 0</div>
+                    <div class="stat-label">Receita Mensal Esperada</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+            <div class="table-toolbar">
+                <input type="text" class="search-input" id="searchInput" placeholder="🔍 Buscar por nome ou WhatsApp...">
+                <select class="filter-select" id="filterStatus">
+                    <option value="todos">Todos os status</option>
+                    <option value="emDia">✅ Em dia</option>
+                    <option value="pendente">🟡 Mês atual pendente</option>
+                    <option value="atrasado">🔴 Atrasados</option>
+                </select>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>WhatsApp</th>
+                            <th>Plano</th>
+                            <th>Inscrição</th>
+                            <th>Mensalidade</th>
+                            <th>Status</th>
+                            <th>Último Pagamento</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientsTableBody">
+                        <tr>
+                            <td colspan="8">
+                                <div class="empty-state">
+                                    <div class="empty-icon">📭</div>
+                                    <p>Nenhum cliente cadastrado ainda</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ADD/EDIT MODAL ==================== -->
+    <div class="modal-overlay" id="clientModalOverlay">
+        <div class="modal">
+            <h3 id="modalTitle">➕ Novo Cliente</h3>
+            <div class="form-group">
+                <label>Nome completo</label>
+                <input type="text" id="clientName" placeholder="Nome do cliente">
+            </div>
+            <div class="form-group">
+                <label>WhatsApp</label>
+                <input type="text" id="clientWhatsapp" placeholder="(DDD) 9XXXX-XXXX">
+            </div>
+            <div class="form-group">
+                <label>Plano</label>
+                <select id="clientPlan">
+                    <option value="basico">Plano Básico — Inst: R$ 197,00 + R$ 49,90/mês</option>
+                    <option value="premium">Plano Premium — Inst: R$ 227,00 + R$ 69,90/mês</option>
+                    <option value="personalizado">Plano Personalizado — Inst: R$ 499,00 + R$ 79,90/mês</option>
+                </select>
+                <div class="plan-detail" id="planDetail">Taxa de instalação: R$ 197,00 | Mensalidade: R$ 49,90</div>
+            </div>
+            <div class="form-group">
+                <label>Data de inscrição</label>
+                <input type="date" id="clientDate">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="clientInstallPaid" style="width:auto;margin-right:8px;">
+                    Taxa de instalação já foi paga
+                </label>
+            </div>
+            <input type="hidden" id="editingClientId">
+            <div class="btn-row">
+                <button class="btn btn-outline" id="btnCancelClient">Cancelar</button>
+                <button class="btn btn-primary" id="btnSaveClient">💾 Salvar Cliente</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== CONFIRM DIALOG ==================== -->
+    <div class="confirm-overlay" id="confirmOverlay">
+        <div class="confirm-dialog">
+            <h4 id="confirmTitle">Confirmação</h4>
+            <p id="confirmMessage">Tem certeza?</p>
+            <div class="btn-row">
+                <button class="btn btn-outline" id="btnConfirmCancel">Cancelar</button>
+                <button class="btn btn-danger" id="btnConfirmOk">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TOAST CONTAINER ==================== -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // ==================== FIREBASE CONFIG ====================
+        // ⚠️ SUBSTITUA com os dados do seu projeto Firebase:
+        const firebaseConfig = {
+            apiKey: "AIzaSyAZvfBg_FNdmifOPJH1ZY6ZWyXvaXIbJkY",
+  authDomain: "banco-de88a.firebaseapp.com",
+  projectId: "banco-de88a",
+  storageBucket: "banco-de88a.firebasestorage.app",
+  messagingSenderId: "742161187025",
+  appId: "1:742161187025:web:8803bccbafe96e7422c5f0"
+        };
+
+        // Inicializa Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // ==================== CONSTANTES DOS PLANOS ====================
+        const PLANOS = {
+            basico: {
+                nome: 'Plano Básico',
+                instalacao: 197.00,
+                mensalidade: 49.90
+            },
+            premium: {
+                nome: 'Plano Premium',
+                instalacao: 227.00,
+                mensalidade: 69.90
+            },
+            personalizado: {
+                nome: 'Plano Personalizado',
+                instalacao: 499.00,
+                mensalidade: 79.90
+            }
+        };
+
+        // ==================== ESTADO DA APLICAÇÃO ====================
+        let allClients = [];
+        let currentFilter = 'todos';
+        let searchQuery = '';
+        let confirmCallback = null;
+
+        // ==================== ELEMENTOS DOM ====================
+        const loginOverlay = document.getElementById('loginOverlay');
+        const appContainer = document.getElementById('appContainer');
+        const loginError = document.getElementById('loginError');
+        const loginSubtitle = document.getElementById('loginSubtitle');
+        const loginToggle = document.getElementById('loginToggle');
+        const clientsTableBody = document.getElementById('clientsTableBody');
+        const searchInput = document.getElementById('searchInput');
+        const filterStatus = document.getElementById('filterStatus');
+        const clientModalOverlay = document.getElementById('clientModalOverlay');
+        const modalTitle = document.getElementById('modalTitle');
+        const clientName = document.getElementById('clientName');
+        const clientWhatsapp = document.getElementById('clientWhatsapp');
+        const clientPlan = document.getElementById('clientPlan');
+        const clientDate = document.getElementById('clientDate');
+        const clientInstallPaid = document.getElementById('clientInstallPaid');
+        const editingClientId = document.getElementById('editingClientId');
+        const planDetail = document.getElementById('planDetail');
+        const confirmOverlay = document.getElementById('confirmOverlay');
+        const confirmTitle = document.getElementById('confirmTitle');
+        const confirmMessage = document.getElementById('confirmMessage');
+        const toastContainer = document.getElementById('toastContainer');
+
+        // ==================== AUTENTICAÇÃO ====================
+        let isRegisterMode = false;
+
+        loginToggle.addEventListener('click', () => {
+            isRegisterMode = !isRegisterMode;
+            if (isRegisterMode) {
+                loginSubtitle.textContent = 'Crie sua conta de administrador';
+                document.getElementById('btnLogin').textContent = 'Criar Conta';
+                loginToggle.textContent = '🔑 Já tenho conta — Fazer login';
+            } else {
+                loginSubtitle.textContent = 'Faça login para acessar o sistema';
+                document.getElementById('btnLogin').textContent = 'Entrar';
+                loginToggle.textContent = '📝 Criar conta de administrador';
+            }
+            loginError.textContent = '';
+        });
+
+        document.getElementById('btnLogin').addEventListener('click', async () => {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                loginError.textContent = 'Preencha email e senha.';
+                return;
+            }
+            if (password.length < 6) {
+                loginError.textContent = 'A senha deve ter no mínimo 6 caracteres.';
+                return;
+            }
+
+            try {
+                if (isRegisterMode) {
+                    await auth.createUserWithEmailAndPassword(email, password);
+                    showToast('Conta criada com sucesso! Bem-vindo.', 'success');
+                } else {
+                    await auth.signInWithEmailAndPassword(email, password);
+                }
+            } catch (error) {
+                let msg = 'Erro ao autenticar.';
+                if (error.code === 'auth/user-not-found') msg = 'Usuário não encontrado.';
+                if (error.code === 'auth/wrong-password') msg = 'Senha incorreta.';
+                if (error.code === 'auth/email-already-in-use') msg = 'Este email já está cadastrado.';
+                if (error.code === 'auth/invalid-email') msg = 'Email inválido.';
+                if (error.code === 'auth/weak-password') msg = 'Senha muito fraca (mínimo 6 caracteres).';
+                loginError.textContent = msg;
+            }
+        });
+
+        // Enter key login
+        document.getElementById('loginPassword').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('btnLogin').click();
+        });
+        document.getElementById('loginEmail').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('loginPassword').focus();
+        });
+
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                loginOverlay.classList.add('hidden');
+                appContainer.classList.add('visible');
+                loadClientsRealtime();
+            } else {
+                loginOverlay.classList.remove('hidden');
+                appContainer.classList.remove('visible');
+                allClients = [];
+                renderTable();
+            }
+        });
+
+        document.getElementById('btnLogout').addEventListener('click', () => {
+            auth.signOut();
+            showToast('Sessão encerrada.', 'info');
+        });
+
+        // ==================== TOAST ====================
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(120%)';
+                toast.style.transition = '0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // ==================== CONFIRM DIALOG ====================
+        function showConfirm(title, message, callback) {
+            confirmTitle.textContent = title;
+            confirmMessage.textContent = message;
+            confirmCallback = callback;
+            confirmOverlay.classList.add('active');
+        }
+
+        document.getElementById('btnConfirmCancel').addEventListener('click', () => {
+            confirmOverlay.classList.remove('active');
+            confirmCallback = null;
+        });
+        document.getElementById('btnConfirmOk').addEventListener('click', () => {
+            confirmOverlay.classList.remove('active');
+            if (confirmCallback) confirmCallback();
+            confirmCallback = null;
+        });
+
+        // ==================== MODAL DE CLIENTE ====================
+        document.getElementById('btnAddClient').addEventListener('click', () => {
+            openClientModal();
+        });
+        document.getElementById('btnCancelClient').addEventListener('click', () => {
+            closeClientModal();
+        });
+        clientModalOverlay.addEventListener('click', (e) => {
+            if (e.target === clientModalOverlay) closeClientModal();
+        });
+
+        clientPlan.addEventListener('change', () => {
+            const plano = PLANOS[clientPlan.value];
+            planDetail.textContent =
+                `Taxa de instalação: R$ ${plano.instalacao.toFixed(2).replace('.', ',')} | Mensalidade: R$ ${plano.mensalidade.toFixed(2).replace('.', ',')}`;
+        });
+
+        function openClientModal(clientData = null) {
+            if (clientData) {
+                modalTitle.textContent = '✏️ Editar Cliente';
+                clientName.value = clientData.name || '';
+                clientWhatsapp.value = clientData.whatsapp || '';
+                clientPlan.value = clientData.plan || 'basico';
+                clientDate.value = clientData.registrationDate ?
+                    new Date(clientData.registrationDate.seconds * 1000).toISOString().split('T')[0] :
+                    new Date().toISOString().split('T')[0];
+                clientInstallPaid.checked = clientData.installationPaid || false;
+                editingClientId.value = clientData.id;
+            } else {
+                modalTitle.textContent = '➕ Novo Cliente';
+                clientName.value = '';
+                clientWhatsapp.value = '';
+                clientPlan.value = 'basico';
+                clientDate.value = new Date().toISOString().split('T')[0];
+                clientInstallPaid.checked = false;
+                editingClientId.value = '';
+            }
+            clientPlan.dispatchEvent(new Event('change'));
+            clientModalOverlay.classList.add('active');
+            clientName.focus();
+        }
+
+        function closeClientModal() {
+            clientModalOverlay.classList.remove('active');
+        }
+
+        document.getElementById('btnSaveClient').addEventListener('click', async () => {
+            const name = clientName.value.trim();
+            const whatsapp = clientWhatsapp.value.trim();
+            const plan = clientPlan.value;
+            const dateStr = clientDate.value;
+            const installPaid = clientInstallPaid.checked;
+            const editId = editingClientId.value;
+
+            if (!name) { showToast('Informe o nome do cliente.', 'error'); return; }
+            if (!whatsapp) { showToast('Informe o WhatsApp.', 'error'); return; }
+            if (!dateStr) { showToast('Informe a data de inscrição.', 'error'); return; }
+
+            const plano = PLANOS[plan];
+            const registrationDate = firebase.firestore.Timestamp.fromDate(new Date(dateStr + 'T00:00:00'));
+
+            const clientData = {
+                name,
+                whatsapp,
+                plan,
+                planName: plano.nome,
+                installationFee: plano.instalacao,
+                monthlyFee: plano.mensalidade,
+                registrationDate,
+                installationPaid: installPaid,
+                payments: [],
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            };
+
+            try {
+                if (editId) {
+                    // Não sobrescreve payments ao editar
+                    const existingDoc = await db.collection('clients').doc(editId).get();
+                    const existing = existingDoc.data();
+                    clientData.payments = existing.payments || [];
+                    clientData.createdAt = existing.createdAt;
+                    await db.collection('clients').doc(editId).update(clientData);
+                    showToast('Cliente atualizado com sucesso! ✅', 'success');
+                } else {
+                    clientData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    await db.collection('clients').add(clientData);
+                    showToast('Cliente cadastrado com sucesso! 🎉', 'success');
+                }
+                closeClientModal();
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                showToast('Erro ao salvar cliente. Tente novamente.', 'error');
+            }
+        });
+
+        // ==================== CARREGAR CLIENTES EM TEMPO REAL ====================
+        function loadClientsRealtime() {
+            db.collection('clients').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
+                allClients = [];
+                snapshot.forEach((doc) => {
+                    allClients.push({ id: doc.id, ...doc.data() });
+                });
+                renderTable();
+                updateStats();
+            }, (error) => {
+                console.error('Erro ao carregar clientes:', error);
+                showToast('Erro ao carregar dados. Verifique as regras do Firestore.', 'error');
+            });
+        }
+
+        // ==================== LÓGICA DE PAGAMENTOS ====================
+        function getExpectedMonths(registrationDate) {
+            const regDate = registrationDate instanceof firebase.firestore.Timestamp ?
+                registrationDate.toDate() :
+                new Date(registrationDate.seconds * 1000);
+            const now = new Date();
+            const months = [];
+            let current = new Date(regDate.getFullYear(), regDate.getMonth(), 1);
+            const limit = new Date(now.getFullYear(), now.getMonth(), 1);
+            while (current <= limit) {
+                months.push({
+                    month: current.getMonth() + 1,
+                    year: current.getFullYear(),
+                    monthKey: `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`,
+                });
+                current.setMonth(current.getMonth() + 1);
+            }
+            return months;
+        }
+
+        function getPaymentStatus(client) {
+            const regDate = client.registrationDate instanceof firebase.firestore.Timestamp ?
+                client.registrationDate.toDate() :
+                new Date(client.registrationDate.seconds * 1000);
+            const now = new Date();
+            const expectedMonths = getExpectedMonths(client.registrationDate);
+            const payments = client.payments || [];
+            const paidKeys = new Set(payments.filter(p => p.status === 'paid').map(p => p.monthKey));
+
+            let overdueCount = 0;
+            let hasCurrentPending = false;
+            let lastPaidKey = null;
+            let lastPaidDate = null;
+
+            // Encontra o último pagamento
+            const paidPayments = payments.filter(p => p.status === 'paid');
+            if (paidPayments.length > 0) {
+                const sorted = [...paidPayments].sort((a, b) => {
+                    if (a.paidAt && b.paidAt) return b.paidAt.seconds - a.paidAt.seconds;
+                    return b.monthKey.localeCompare(a.monthKey);
+                });
+                lastPaidKey = sorted[0].monthKey;
+                lastPaidDate = sorted[0].paidAt ? new Date(sorted[0].paidAt.seconds * 1000) : null;
+            }
+
+            const dueDay = regDate.getDate();
+
+            for (const em of expectedMonths) {
+                if (paidKeys.has(em.monthKey)) continue;
+                const dueDate = new Date(em.year, em.month - 1, dueDay);
+                const isCurrentMonth = em.month === (now.getMonth() + 1) && em.year === now.getFullYear();
+                if (now > dueDate) {
+                    overdueCount++;
+                } else if (isCurrentMonth && now <= dueDate) {
+                    hasCurrentPending = true;
+                }
+            }
+
+            let status = 'ok';
+            if (overdueCount > 0) status = 'overdue';
+            else if (hasCurrentPending) status = 'pending';
+
+            return {
+                status,
+                overdueCount,
+                hasCurrentPending,
+                lastPaidKey,
+                lastPaidDate,
+                expectedMonths,
+                paidKeys,
+                totalExpected: expectedMonths.length,
+                totalPaid: paidKeys.size,
+            };
+        }
+
+        function getOldestUnpaidMonth(client) {
+            const paymentStatus = getPaymentStatus(client);
+            const dueDay = client.registrationDate instanceof firebase.firestore.Timestamp ?
+                client.registrationDate.toDate().getDate() :
+                new Date(client.registrationDate.seconds * 1000).getDate();
+            const now = new Date();
+
+            for (const em of paymentStatus.expectedMonths) {
+                if (paymentStatus.paidKeys.has(em.monthKey)) continue;
+                const dueDate = new Date(em.year, em.month - 1, dueDay);
+                if (now >= dueDate || (em.month === (now.getMonth() + 1) && em.year === now.getFullYear())) {
+                    return em;
+                }
+            }
+            // Retorna o mês atual se todos os passados estão pagos
+            const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            if (!paymentStatus.paidKeys.has(currentKey)) {
+                return { month: now.getMonth() + 1, year: now.getFullYear(), monthKey: currentKey };
+            }
+            return null;
+        }
+
+        // ==================== RENDERIZAR TABELA ====================
+        function renderTable() {
+            let clients = [...allClients];
+
+            // Filtro de busca
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                clients = clients.filter(c =>
+                    c.name.toLowerCase().includes(q) ||
+                    c.whatsapp.includes(q)
+                );
+            }
+
+            // Filtro de status
+            if (currentFilter !== 'todos') {
+                clients = clients.filter(c => {
+                    const ps = getPaymentStatus(c);
+                    if (currentFilter === 'emDia') return ps.status === 'ok';
+                    if (currentFilter === 'pendente') return ps.status === 'pending';
+                    if (currentFilter === 'atrasado') return ps.status === 'overdue';
+                    return true;
+                });
+            }
+
+            if (clients.length === 0) {
+                clientsTableBody.innerHTML = `
+                    <tr><td colspan="8">
+                        <div class="empty-state">
+                            <div class="empty-icon">📭</div>
+                            <p>Nenhum cliente encontrado</p>
+                        </div>
+                    </td></tr>`;
+                return;
+            }
+
+            clientsTableBody.innerHTML = clients.map(client => {
+                const ps = getPaymentStatus(client);
+                const regDate = client.registrationDate instanceof firebase.firestore.Timestamp ?
+                    client.registrationDate.toDate() :
+                    new Date(client.registrationDate.seconds * 1000);
+                const formattedRegDate = regDate.toLocaleDateString('pt-BR');
+                const monthlyFee = client.monthlyFee || PLANOS[client.plan]?.mensalidade || 0;
+
+                let rowClass = 'row-ok';
+                let statusBadge = '<span class="badge badge-success">✅ Em dia</span>';
+                if (ps.status === 'overdue') {
+                    rowClass = 'row-overdue';
+                    statusBadge =
+                        `<span class="badge badge-danger">🔴 ${ps.overdueCount} mês(es) atrasado(s)</span>`;
+                } else if (ps.status === 'pending') {
+                    rowClass = 'row-pending';
+                    statusBadge = '<span class="badge badge-warning">🟡 Mês atual pendente</span>';
+                }
+
+                const lastPaymentText = ps.lastPaidDate ?
+                    ps.lastPaidDate.toLocaleDateString('pt-BR') :
+                    '—';
+
+                const whatsappClean = client.whatsapp.replace(/\D/g, '');
+                const whatsappHref = `https://wa.me/55${whatsappClean}`;
+
+                const unpaidMonth = getOldestUnpaidMonth(client);
+                const payButtonLabel = unpaidMonth ?
+                    `💳 Pagar ${unpaidMonth.monthKey.replace('-', '/')}` :
+                    '✅ Pago';
+
+                const isFullyPaid = !unpaidMonth;
+
+                return `
+                    <tr class="${rowClass}">
+                        <td><strong>${escapeHtml(client.name)}</strong></td>
+                        <td>
+                            <a href="${whatsappHref}" target="_blank" class="whatsapp-link" title="Abrir WhatsApp">
+                                📱 ${escapeHtml(client.whatsapp)}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="badge badge-info">${escapeHtml(client.planName || PLANOS[client.plan]?.nome || '—')}</span>
+                            ${!client.installationPaid ? '<br><small style="color:#ef4444;">Instalação pendente</small>' : ''}
+                        </td>
+                        <td>${formattedRegDate}</td>
+                        <td><strong>R$ ${monthlyFee.toFixed(2).replace('.', ',')}</strong></td>
+                        <td>${statusBadge}</td>
+                        <td>${lastPaymentText}</td>
+                        <td>
+                            <div class="actions-cell">
+                                ${!isFullyPaid ? `
+                                    <button class="btn btn-success btn-xs" onclick="payMonth('${client.id}')" title="Pagar mês mais antigo em aberto">
+                                        ${payButtonLabel}
+                                    </button>
+                                ` : `
+                                    <button class="btn btn-outline btn-xs" disabled style="opacity:0.5;">✅ Pago</button>
+                                `}
+                                ${!client.installationPaid ? `
+                                    <button class="btn btn-outline btn-xs" onclick="payInstallation('${client.id}')" title="Marcar instalação como paga" style="color:#f59e0b;border-color:#fcd34d;">
+                                        🏗️ Inst
+                                    </button>
+                                ` : ''}
+                                <button class="btn btn-outline btn-xs" onclick="editClient('${client.id}')">✏️</button>
+                                <button class="btn btn-danger btn-xs" onclick="deleteClient('${client.id}')">🗑️</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function updateStats() {
+            let total = allClients.length;
+            let emDia = 0;
+            let atrasados = 0;
+            let receitaTotal = 0;
+
+            allClients.forEach(c => {
+                const ps = getPaymentStatus(c);
+                if (ps.status === 'ok') emDia++;
+                if (ps.status === 'overdue') atrasados++;
+                receitaTotal += (c.monthlyFee || PLANOS[c.plan]?.mensalidade || 0);
+            });
+
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statEmDia').textContent = emDia;
+            document.getElementById('statAtrasados').textContent = atrasados;
+            document.getElementById('statReceita').textContent =
+                `R$ ${receitaTotal.toFixed(2).replace('.', ',')}`;
+        }
+
+        // ==================== AÇÕES ====================
+        async function payMonth(clientId) {
+            const client = allClients.find(c => c.id === clientId);
+            if (!client) return;
+            const unpaidMonth = getOldestUnpaidMonth(client);
+            if (!unpaidMonth) {
+                showToast('Todos os meses estão pagos! ✅', 'info');
+                return;
+            }
+            const monthlyFee = client.monthlyFee || PLANOS[client.plan]?.mensalidade || 0;
+            const paymentRecord = {
+                monthKey: unpaidMonth.monthKey,
+                month: unpaidMonth.month,
+                year: unpaidMonth.year,
+                amount: monthlyFee,
+                status: 'paid',
+                paidAt: firebase.firestore.Timestamp.now(),
+            };
+
+            try {
+                const payments = [...(client.payments || []), paymentRecord];
+                await db.collection('clients').doc(clientId).update({
+                    payments,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                });
+                const mesNome = new Date(unpaidMonth.year, unpaidMonth.month - 1, 1)
+                    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                showToast(`Pagamento de ${mesNome} registrado! 💰`, 'success');
+            } catch (error) {
+                console.error('Erro ao registrar pagamento:', error);
+                showToast('Erro ao registrar pagamento.', 'error');
+            }
+        }
+
+        async function payInstallation(clientId) {
+            showConfirm(
+                'Confirmar Instalação',
+                'Marcar a taxa de instalação como paga?',
+                async () => {
+                    try {
+                        await db.collection('clients').doc(clientId).update({
+                            installationPaid: true,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        });
+                        showToast('Taxa de instalação marcada como paga! ✅', 'success');
+                    } catch (error) {
+                        console.error('Erro:', error);
+                        showToast('Erro ao atualizar.', 'error');
+                    }
+                }
+            );
+        }
+
+        function editClient(clientId) {
+            const client = allClients.find(c => c.id === clientId);
+            if (!client) return;
+            openClientModal(client);
+        }
+
+        function deleteClient(clientId) {
+            const client = allClients.find(c => c.id === clientId);
+            if (!client) return;
+            showConfirm(
+                'Excluir Cliente',
+                `Tem certeza que deseja excluir <strong>${escapeHtml(client.name)}</strong>? Esta ação é irreversível.`,
+                async () => {
+                    try {
+                        await db.collection('clients').doc(clientId).delete();
+                        showToast('Cliente excluído.', 'info');
+                    } catch (error) {
+                        console.error('Erro ao excluir:', error);
+                        showToast('Erro ao excluir cliente.', 'error');
+                    }
+                }
+            );
+        }
+
+        // Tornar funções globais para os botões inline
+        window.payMonth = payMonth;
+        window.payInstallation = payInstallation;
+        window.editClient = editClient;
+        window.deleteClient = deleteClient;
+
+        // ==================== FILTROS E BUSCA ====================
+        searchInput.addEventListener('input', () => {
+            searchQuery = searchInput.value.trim();
+            renderTable();
+            updateStats();
+        });
+
+        filterStatus.addEventListener('change', () => {
+            currentFilter = filterStatus.value;
+            renderTable();
+            updateStats();
+        });
+
+        // ==================== TECLA ESC PARA FECHAR MODAIS ====================
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (clientModalOverlay.classList.contains('active')) closeClientModal();
+                if (confirmOverlay.classList.contains('active')) {
+                    confirmOverlay.classList.remove('active');
+                    confirmCallback = null;
+                }
+            }
+        });
+
+        // ==================== INICIALIZAÇÃO ====================
+        console.log('🚀 SGClient pronto!');
+        console.log('📋 Planos configurados:');
+        console.log('  • Básico: R$ 197 inst + R$ 49,90/mês');
+        console.log('  • Premium: R$ 227 inst + R$ 69,90/mês');
+        console.log('  • Personalizado: R$ 499 inst + R$ 79,90/mês');
+        console.log('⚠️ Lembre-se de configurar as regras de segurança do Firestore!');
+        console.log('   Exemplo: allow read, write: if request.auth != null;');
+    </script>
+</body>
+</html>
