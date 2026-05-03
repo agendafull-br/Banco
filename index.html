@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGClient - Gestão de Clientes</title>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --surface-alt: #f8fafc;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --primary: #4f46e5;
+            --primary-light: #eef2ff;
+            --primary-hover: #4338ca;
+            --success: #10b981;
+            --success-light: #ecfdf5;
+            --warning: #f59e0b;
+            --warning-light: #fffbeb;
+            --danger: #ef4444;
+            --danger-light: #fef2f2;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
+            --radius-sm: 8px;
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .login-overlay {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #1e1b4b 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.4s;
+        }
+        .login-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        .login-card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 40px 36px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: var(--shadow-lg);
+            text-align: center;
+        }
+        .login-card .logo-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--primary);
+            border-radius: var(--radius);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            font-size: 28px;
+            color: #fff;
+        }
+        .login-card h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+        .login-card p { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; }
+        .login-card .form-group { text-align: left; margin-bottom: 16px; }
+        .login-card label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; }
+        .login-card input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            background: var(--surface-alt);
+        }
+        .login-card input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        .login-card .btn-login {
+            width: 100%;
+            padding: 13px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .login-card .btn-login:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .login-error { color: var(--danger); font-size: 0.85rem; margin-top: 10px; }
+
+        .app-container { max-width: 1400px; margin: 0 auto; padding: 20px 24px; display: none; }
+        .app-container.visible { display: block; }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0;
+        }
+        .tab-btn {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition);
+            border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+            position: relative;
+        }
+        .tab-btn:hover { color: var(--primary); background: var(--primary-light); }
+        .tab-btn.active {
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary);
+            border-radius: 3px;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .app-header .brand { display: flex; align-items: center; gap: 12px; }
+        .app-header .brand .icon {
+            width: 42px;
+            height: 42px;
+            background: var(--primary);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 20px;
+        }
+        .app-header .brand h2 { font-size: 1.3rem; font-weight: 700; }
+        .header-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+        .btn {
+            padding: 10px 18px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn-outline { background: #fff; color: var(--text); border: 2px solid var(--border); }
+        .btn-outline:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+        .btn-danger { background: #fff; color: var(--danger); border: 2px solid #fecaca; }
+        .btn-danger:hover { background: var(--danger-light); border-color: var(--danger); }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-success:hover { background: #059669; }
+        .btn-whatsapp { background: #25d366; color: #fff; }
+        .btn-whatsapp:hover { background: #128c7e; }
+        .btn-rules { background: #8b5cf6; color: #fff; }
+        .btn-rules:hover { background: #7c3aed; }
+        .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+        .btn-xs { padding: 4px 10px; font-size: 0.75rem; }
+
+        /* Stats Cards */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .stat-card .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+        .stat-card .stat-icon.blue { background: var(--primary-light); color: var(--primary); }
+        .stat-card .stat-icon.green { background: var(--success-light); color: var(--success); }
+        .stat-card .stat-icon.red { background: var(--danger-light); color: var(--danger); }
+        .stat-card .stat-icon.amber { background: var(--warning-light); color: var(--warning); }
+        .stat-card .stat-icon.purple { background: #f3e8ff; color: #9333ea; }
+        .stat-card .stat-info .stat-value { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+        .stat-card .stat-info .stat-label { font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; }
+
+        .chart-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+            margin-bottom: 30px;
+        }
+        .chart-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 20px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+        .chart-card h3 { margin-bottom: 16px; font-size: 1.1rem; }
+        canvas { max-height: 300px; width: 100%; }
+
+        .table-container {
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .table-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface-alt);
+        }
+        .table-toolbar .search-input {
+            padding: 9px 14px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            width: 280px;
+        }
+        .table-toolbar .filter-select {
+            padding: 9px 14px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            background: #fff;
+        }
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 1150px; }
+        table thead { background: var(--surface-alt); }
+        table thead th {
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border);
+        }
+        table tbody td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+        table tbody tr:hover { background: #f8fafc; }
+        table tbody tr.row-overdue { background: #fef2f2; border-left: 3px solid var(--danger); }
+        table tbody tr.row-pending { background: #fffbeb; border-left: 3px solid var(--warning); }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+        .badge-success { background: var(--success-light); color: #065f46; }
+        .badge-warning { background: var(--warning-light); color: #92400e; }
+        .badge-danger { background: var(--danger-light); color: #991b1b; }
+        .badge-info { background: var(--primary-light); color: #3730a3; }
+
+        .actions-cell { display: flex; gap: 6px; flex-wrap: wrap; }
+
+        .rules-page { display: none; flex-direction: column; gap: 20px; }
+        .rules-page.active { display: flex; }
+        .rules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 20px;
+        }
+        .rule-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .rule-card-header {
+            background: var(--primary-light);
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .rule-card-header h3 { font-size: 1.1rem; font-weight: 700; color: var(--primary); }
+        .rule-card-body { padding: 16px 20px; }
+        .rule-card-body .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .rule-card-body .code-label {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            margin: 12px 0 6px;
+        }
+        .rule-card-body .copy-btn {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 5px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+        .rule-card-footer {
+            padding: 12px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            padding: 32px 28px;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: var(--shadow-lg);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal h3 { font-size: 1.3rem; margin-bottom: 20px; font-weight: 700; }
+        .modal .form-group { margin-bottom: 16px; }
+        .modal label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 5px; }
+        .modal input, .modal select, .modal textarea {
+            width: 100%;
+            padding: 11px 14px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            background: #f9fafb;
+        }
+        .modal textarea { min-height: 120px; font-family: 'Courier New', monospace; }
+        .modal .btn-row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+        .charge-preview {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            margin: 12px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+        }
+
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .toast {
+            padding: 14px 20px;
+            border-radius: var(--radius-sm);
+            color: #fff;
+            font-weight: 600;
+            box-shadow: var(--shadow-lg);
+            animation: slideIn 0.35s ease;
+        }
+        .toast.success { background: #059669; }
+        .toast.error { background: #dc2626; }
+        .toast.info { background: #4f46e5; }
+        @keyframes slideIn {
+            from { transform: translateX(120%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2500;
+            opacity: 0;
+            visibility: hidden;
+            transition: 0.2s;
+        }
+        .confirm-overlay.active { opacity: 1; visibility: visible; }
+        .confirm-dialog {
+            background: #fff;
+            border-radius: var(--radius);
+            padding: 28px 24px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        .confirm-dialog .btn-row { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+
+        .empty-state { text-align: center; padding: 50px 20px; color: var(--text-secondary); }
+
+        @media (max-width: 768px) {
+            .rules-grid { grid-template-columns: 1fr; }
+            .app-header { flex-direction: column; align-items: flex-start; }
+            .chart-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-overlay" id="loginOverlay">
+    <div class="login-card">
+        <div class="logo-icon">🔐</div>
+        <h1>SGClient Admin</h1>
+        <p>Faça login para acessar o sistema</p>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="loginEmail" placeholder="seu@email.com">
+        </div>
+        <div class="form-group">
+            <label>Senha</label>
+            <input type="password" id="loginPassword" placeholder="••••••••">
+        </div>
+        <button class="btn-login" id="btnLogin">Entrar</button>
+        <div class="login-error" id="loginError"></div>
+    </div>
+</div>
+
+<div class="app-container" id="appContainer">
+    <!-- TABS -->
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="clientes">👥 Clientes</button>
+        <button class="tab-btn" data-tab="estatisticas">📊 Estatísticas</button>
+        <button class="tab-btn" data-tab="regras">📋 Regras</button>
+    </div>
+
+    <!-- TAB CLIENTES -->
+    <div class="tab-content active" id="tabClientes">
+        <div class="app-header">
+            <div class="brand">
+                <div class="icon">📊</div>
+                <h2>Gestão de Clientes</h2>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" id="btnAddClient">➕ Novo Cliente</button>
+                <button class="btn btn-outline" id="btnLogout">🚪 Sair</button>
+            </div>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-card"><div class="stat-icon blue">👥</div><div class="stat-info"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total de Clientes</div></div></div>
+            <div class="stat-card"><div class="stat-icon green">✅</div><div class="stat-info"><div class="stat-value" id="statEmDia">0</div><div class="stat-label">Em Dia</div></div></div>
+            <div class="stat-card"><div class="stat-icon red">⚠️</div><div class="stat-info"><div class="stat-value" id="statAtrasados">0</div><div class="stat-label">Com Atraso</div></div></div>
+            <div class="stat-card"><div class="stat-icon amber">💰</div><div class="stat-info"><div class="stat-value" id="statReceita">R$ 0</div><div class="stat-label">Receita Mensal</div></div></div>
+        </div>
+
+        <div class="table-container">
+            <div class="table-toolbar">
+                <input type="text" class="search-input" id="searchInput" placeholder="🔍 Buscar por nome ou WhatsApp...">
+                <select class="filter-select" id="filterStatus">
+                    <option value="todos">Todos os status</option>
+                    <option value="emDia">✅ Em dia</option>
+                    <option value="pendente">🟡 Pendente</option>
+                    <option value="atrasado">🔴 Atrasados</option>
+                </select>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr><th>Cliente</th><th>WhatsApp</th><th>Plano</th><th>Inscrição</th><th>Dias</th><th>Mensalidade</th><th>Status</th><th>Último Pagto</th><th>Ações</th></tr></thead>
+                    <tbody id="clientsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB ESTATÍSTICAS -->
+    <div class="tab-content" id="tabEstatisticas">
+        <div class="app-header">
+            <div class="brand">
+                <div class="icon">📈</div>
+                <h2>Dashboard de Estatísticas</h2>
+            </div>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-card"><div class="stat-icon blue">👁️</div><div class="stat-info"><div class="stat-value" id="statVisitasLoja">0</div><div class="stat-label">Visitas na Loja</div></div></div>
+            <div class="stat-card"><div class="stat-icon green">💬</div><div class="stat-info"><div class="stat-value" id="statCliquesWhats">0</div><div class="stat-label">Cliques no WhatsApp</div></div></div>
+            <div class="stat-card"><div class="stat-icon purple">📊</div><div class="stat-info"><div class="stat-value" id="statTaxaConversao">0%</div><div class="stat-label">Taxa de Conversão</div></div></div>
+            <div class="stat-card"><div class="stat-icon amber">👤</div><div class="stat-info"><div class="stat-value" id="statAcessosAdmin">0</div><div class="stat-label">Acessos ao Admin</div></div></div>
+        </div>
+
+        <div class="chart-row">
+            <div class="chart-card">
+                <h3>📈 Visitas vs Cliques</h3>
+                <canvas id="visitasChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>💰 Receita por Plano</h3>
+                <canvas id="receitaChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-row">
+            <div class="chart-card">
+                <h3>👥 Distribuição de Planos</h3>
+                <canvas id="planosChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>📅 Clientes por Status</h3>
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB REGRAS -->
+    <div class="tab-content" id="tabRegras">
+        <div class="app-header">
+            <div class="brand">
+                <div class="icon">📋</div>
+                <h2>Regras & Códigos dos Clientes</h2>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" id="btnAddRule">➕ Nova Regra</button>
+            </div>
+        </div>
+        <div class="rules-grid" id="rulesGrid"></div>
+    </div>
+</div>
+
+<!-- Modais -->
+<div class="modal-overlay" id="clientModalOverlay"><div class="modal"><h3 id="modalTitle">➕ Novo Cliente</h3>
+    <div class="form-group"><label>Nome completo</label><input type="text" id="clientName"></div>
+    <div class="form-group"><label>WhatsApp</label><input type="text" id="clientWhatsapp" placeholder="(DDD) 9XXXX-XXXX"></div>
+    <div class="form-group"><label>Plano</label><select id="clientPlan"><option value="basico">Básico - R$197 + R$49,90/mês</option><option value="premium">Premium - R$227 + R$69,90/mês</option><option value="personalizado">Personalizado - R$499 + R$79,90/mês</option></select></div>
+    <div class="form-group"><label>Data inscrição</label><input type="date" id="clientDate"></div>
+    <div class="form-group"><label><input type="checkbox" id="clientInstallPaid"> Instalação paga</label></div>
+    <input type="hidden" id="editingClientId"><div class="btn-row"><button class="btn btn-outline" id="btnCancelClient">Cancelar</button><button class="btn btn-primary" id="btnSaveClient">💾 Salvar</button></div>
+</div></div>
+
+<div class="modal-overlay" id="chargeModalOverlay"><div class="modal"><h3>💰 Cobrar Mensalidade</h3>
+    <div class="charge-info" id="chargeClientInfo"></div>
+    <div class="form-group"><label>Mês Referência</label><input type="text" id="chargeMonthRef" readonly></div>
+    <div class="form-group"><label>Valor</label><input type="text" id="chargeAmount" readonly></div>
+    <div class="form-group"><label>Mensagem</label><div class="charge-preview" id="chargeMessagePreview"></div></div>
+    <input type="hidden" id="chargeClientId"><div class="btn-row"><button class="btn btn-outline" id="btnCancelCharge">Cancelar</button><button class="btn btn-whatsapp" id="btnSendCharge">💬 Enviar WhatsApp</button></div>
+</div></div>
+
+<div class="modal-overlay" id="ruleModalOverlay"><div class="modal"><h3 id="ruleModalTitle">➕ Nova Regra</h3>
+    <div class="form-group"><label>Nome do Site</label><input type="text" id="ruleName" placeholder="Ex: Barbearia do João"></div>
+    <div class="form-group"><label>Código HTML Completo</label><textarea id="ruleCode" placeholder="Cole o código HTML do site..."></textarea></div>
+    <div class="form-group"><label>Regras Firebase</label><textarea id="ruleFirebase" placeholder="Cole as regras do Firebase..."></textarea></div>
+    <div class="form-group"><label>Observações</label><input type="text" id="ruleNotes" placeholder="Anotações sobre o site"></div>
+    <input type="hidden" id="editingRuleId"><div class="btn-row"><button class="btn btn-outline" id="btnCancelRule">Cancelar</button><button class="btn btn-primary" id="btnSaveRule">💾 Salvar</button></div>
+</div></div>
+
+<div class="confirm-overlay" id="confirmOverlay"><div class="confirm-dialog"><h4 id="confirmTitle">Confirmação</h4><p id="confirmMessage">Tem certeza?</p><div class="btn-row"><button class="btn btn-outline" id="btnConfirmCancel">Cancelar</button><button class="btn btn-danger" id="btnConfirmOk">Confirmar</button></div></div></div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ==================== FIREBASE CONFIG ====================
+const firebaseConfig = {
+    apiKey: "AIzaSyAZvfBg_FNdmifOPJH1ZY6ZWyXvaXIbJkY",
+    authDomain: "banco-de88a.firebaseapp.com",
+    projectId: "banco-de88a",
+    storageBucket: "banco-de88a.firebasestorage.app",
+    messagingSenderId: "742161187025",
+    appId: "1:742161187025:web:8803bccbafe96e7422c5f0"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// ==================== CONSTANTES ====================
+const PLANOS = {
+    basico: { nome: 'Plano Básico', instalacao: 197.00, mensalidade: 49.90, linkPagamento: 'https://pag.ae/81Kp-TXb8' },
+    premium: { nome: 'Plano Premium', instalacao: 227.00, mensalidade: 69.90, linkPagamento: 'https://pag.ae/81Kqc3EnN' },
+    personalizado: { nome: 'Plano Personalizado', instalacao: 499.00, mensalidade: 79.90, linkPagamento: 'https://pag.ae/81Kp-TXb8' }
+};
+
+let allClients = [], allRules = [], currentFilter = 'todos', searchQuery = '', confirmCallback = null;
+let visitasChart, receitaChart, planosChart, statusChart;
+
+// DOM Elements
+const loginOverlay = document.getElementById('loginOverlay');
+const appContainer = document.getElementById('appContainer');
+const toastContainer = document.getElementById('toastContainer');
+const confirmOverlay = document.getElementById('confirmOverlay');
+
+// ==================== TOAST & CONFIRM ====================
+function showToast(msg, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = msg;
+    toastContainer.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3500);
+}
+
+function showConfirm(title, msg, callback) {
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').textContent = msg;
+    confirmCallback = callback;
+    confirmOverlay.classList.add('active');
+}
+document.getElementById('btnConfirmCancel').addEventListener('click', () => { confirmOverlay.classList.remove('active'); confirmCallback = null; });
+document.getElementById('btnConfirmOk').addEventListener('click', () => { confirmOverlay.classList.remove('active'); if (confirmCallback) confirmCallback(); confirmCallback = null; });
+
+// ==================== AUTH ====================
+document.getElementById('btnLogin').addEventListener('click', async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    if (!email || !password) { document.getElementById('loginError').textContent = 'Preencha email e senha.'; return; }
+    try {
+        await auth.signInWithEmailAndPassword(email, password);
+        registrarAcessoAdmin();
+    } catch (error) {
+        let msg = 'Erro ao autenticar.';
+        if (error.code === 'auth/user-not-found') msg = 'Usuário não encontrado.';
+        if (error.code === 'auth/wrong-password') msg = 'Senha incorreta.';
+        document.getElementById('loginError').textContent = msg;
+    }
+});
+
+auth.onAuthStateChanged((user) => {
+    if (user) {
+        loginOverlay.classList.add('hidden');
+        appContainer.classList.add('visible');
+        loadClientsRealtime();
+        loadRules();
+        carregarEstatisticas();
+        iniciarTabs();
+    } else {
+        loginOverlay.classList.remove('hidden');
+        appContainer.classList.remove('visible');
+    }
+});
+
+document.getElementById('btnLogout').addEventListener('click', () => auth.signOut());
+
+// ==================== TABS ====================
+function iniciarTabs() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.dataset.tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(`tab${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`).classList.add('active');
+            
+            if (tabId === 'estatisticas') {
+                carregarEstatisticas();
+            }
+        });
+    });
+}
+
+// ==================== ESTATÍSTICAS ====================
+async function registrarAcessoAdmin() {
+    const ref = db.collection('estatisticas').doc('acessos_admin');
+    try {
+        const doc = await ref.get();
+        if (doc.exists) {
+            await ref.update({ total: (doc.data().total || 0) + 1, ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp() });
+        } else {
+            await ref.set({ total: 1, criadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+        }
+    } catch(e) { console.error(e); }
+}
+
+async function carregarEstatisticas() {
+    try {
+        const visitasDoc = await db.collection('estatisticas').doc('visitas_loja').get();
+        const cliquesDoc = await db.collection('estatisticas').doc('cliques_whatsapp').get();
+        const adminDoc = await db.collection('estatisticas').doc('acessos_admin').get();
+        
+        const visitas = visitasDoc.exists ? visitasDoc.data().total || 0 : 0;
+        const cliques = cliquesDoc.exists ? cliquesDoc.data().total || 0 : 0;
+        const adminAcessos = adminDoc.exists ? adminDoc.data().total || 0 : 0;
+        
+        document.getElementById('statVisitasLoja').textContent = visitas.toLocaleString('pt-BR');
+        document.getElementById('statCliquesWhats').textContent = cliques.toLocaleString('pt-BR');
+        document.getElementById('statAcessosAdmin').textContent = adminAcessos.toLocaleString('pt-BR');
+        
+        const taxaConversao = visitas > 0 ? ((cliques / visitas) * 100).toFixed(1) : 0;
+        document.getElementById('statTaxaConversao').textContent = `${taxaConversao}%`;
+        
+        // Gráfico de visitas vs cliques
+        if (visitasChart) visitasChart.destroy();
+        const ctx1 = document.getElementById('visitasChart').getContext('2d');
+        visitasChart = new Chart(ctx1, {
+            type: 'bar',
+            data: { labels: ['Visitas na Loja', 'Cliques WhatsApp'], datasets: [{ label: 'Total', data: [visitas, cliques], backgroundColor: ['#4f46e5', '#25d366'], borderRadius: 8 }] },
+            options: { responsive: true, maintainAspectRatio: true }
+        });
+        
+        // Estatísticas dos clientes
+        const clientesPorPlano = { basico: 0, premium: 0, personalizado: 0 };
+        const clientesPorStatus = { emDia: 0, pendente: 0, atrasado: 0 };
+        let receitaPorPlano = { basico: 0, premium: 0, personalizado: 0 };
+        
+        allClients.forEach(c => {
+            const plano = c.plan || 'basico';
+            clientesPorPlano[plano]++;
+            receitaPorPlano[plano] += (c.monthlyFee || PLANOS[plano]?.mensalidade || 0);
+            
+            const ps = getPaymentStatus(c);
+            if (ps.status === 'ok') clientesPorStatus.emDia++;
+            else if (ps.status === 'pending') clientesPorStatus.pendente++;
+            else clientesPorStatus.atrasado++;
+        });
+        
+        if (receitaChart) receitaChart.destroy();
+        const ctx2 = document.getElementById('receitaChart').getContext('2d');
+        receitaChart = new Chart(ctx2, {
+            type: 'doughnut',
+            data: { labels: ['Plano Básico', 'Plano Premium', 'Personalizado'], datasets: [{ label: 'Receita (R$)', data: [receitaPorPlano.basico, receitaPorPlano.premium, receitaPorPlano.personalizado], backgroundColor: ['#4f46e5', '#f59e0b', '#10b981'] }] },
+            options: { responsive: true }
+        });
+        
+        if (planosChart) planosChart.destroy();
+        const ctx3 = document.getElementById('planosChart').getContext('2d');
+        planosChart = new Chart(ctx3, {
+            type: 'pie',
+            data: { labels: ['Básico', 'Premium', 'Personalizado'], datasets: [{ data: [clientesPorPlano.basico, clientesPorPlano.premium, clientesPorPlano.personalizado], backgroundColor: ['#4f46e5', '#f59e0b', '#10b981'] }] },
+            options: { responsive: true }
+        });
+        
+        if (statusChart) statusChart.destroy();
+        const ctx4 = document.getElementById('statusChart').getContext('2d');
+        statusChart = new Chart(ctx4, {
+            type: 'bar',
+            data: { labels: ['Em Dia', 'Pendente', 'Atrasado'], datasets: [{ label: 'Quantidade', data: [clientesPorStatus.emDia, clientesPorStatus.pendente, clientesPorStatus.atrasado], backgroundColor: ['#10b981', '#f59e0b', '#ef4444'], borderRadius: 8 }] },
+            options: { responsive: true }
+        });
+        
+    } catch(e) { console.error('Erro ao carregar estatísticas:', e); }
+}
+
+// ==================== CLIENTES ====================
+function loadClientsRealtime() {
+    db.collection('clients').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
+        allClients = [];
+        snapshot.forEach(doc => { if (doc.id !== '_rules_storage') allClients.push({ id: doc.id, ...doc.data() }); });
+        renderTable();
+        updateStats();
+        carregarEstatisticas();
+    });
+}
+
+function getPaymentStatus(client) {
+    let regDate = client.registrationDate?.toDate?.() || new Date();
+    const now = new Date();
+    const payments = client.payments || [];
+    const paidKeys = new Set(payments.filter(p => p.status === 'paid').map(p => p.monthKey));
+    let overdueCount = 0, hasCurrentPending = false, lastPaidDate = null;
+    const paidPayments = payments.filter(p => p.status === 'paid');
+    if (paidPayments.length > 0) {
+        const sorted = [...paidPayments].sort((a,b) => (b.paidAt?.seconds||0) - (a.paidAt?.seconds||0));
+        lastPaidDate = sorted[0].paidAt ? new Date(sorted[0].paidAt.seconds * 1000) : null;
+    }
+    const dueDay = regDate.getDate();
+    let current = new Date(regDate.getFullYear(), regDate.getMonth() + 1, 1);
+    const limit = new Date(now.getFullYear(), now.getMonth(), 1);
+    while (current <= limit) {
+        const monthKey = `${current.getFullYear()}-${String(current.getMonth()+1).padStart(2,'0')}`;
+        if (!paidKeys.has(monthKey)) {
+            const dueDate = new Date(current.getFullYear(), current.getMonth(), dueDay);
+            if (now > dueDate) overdueCount++;
+            else if (current.getMonth() === now.getMonth() && current.getFullYear() === now.getFullYear()) hasCurrentPending = true;
+        }
+        current.setMonth(current.getMonth() + 1);
+    }
+    let status = 'ok';
+    if (overdueCount > 0) status = 'overdue';
+    else if (hasCurrentPending) status = 'pending';
+    return { status, overdueCount, lastPaidDate };
+}
+
+function getOldestUnpaidMonth(client) {
+    let regDate = client.registrationDate?.toDate?.() || new Date();
+    const payments = client.payments || [];
+    const paidKeys = new Set(payments.filter(p => p.status === 'paid').map(p => p.monthKey));
+    const dueDay = regDate.getDate();
+    let current = new Date(regDate.getFullYear(), regDate.getMonth() + 1, 1);
+    const limit = new Date();
+    while (current <= limit) {
+        const monthKey = `${current.getFullYear()}-${String(current.getMonth()+1).padStart(2,'0')}`;
+        if (!paidKeys.has(monthKey)) return { month: current.getMonth()+1, year: current.getFullYear(), monthKey };
+        current.setMonth(current.getMonth() + 1);
+    }
+    return null;
+}
+
+function escapeHtml(str) { if (!str) return ''; const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+
+function renderTable() {
+    let clients = [...allClients];
+    if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        clients = clients.filter(c => (c.name && c.name.toLowerCase().includes(q)) || (c.whatsapp && c.whatsapp.includes(q)));
+    }
+    if (currentFilter !== 'todos') {
+        clients = clients.filter(c => { const ps = getPaymentStatus(c); return currentFilter === 'emDia' ? ps.status === 'ok' : currentFilter === 'pendente' ? ps.status === 'pending' : ps.status === 'overdue'; });
+    }
+    if (clients.length === 0) { document.getElementById('clientsTableBody').innerHTML = `<tr><td colspan="9"><div class="empty-state">📭 Nenhum cliente</div></td></tr>`; return; }
+    document.getElementById('clientsTableBody').innerHTML = clients.map(client => {
+        const ps = getPaymentStatus(client);
+        let regDate = client.registrationDate?.toDate?.() || new Date();
+        const monthlyFee = client.monthlyFee || PLANOS[client.plan]?.mensalidade || 0;
+        const diffDays = Math.floor((new Date() - regDate) / (1000*60*60*24));
+        let rowClass = '', statusBadge = '';
+        if (ps.status === 'overdue') { rowClass = 'row-overdue'; statusBadge = `<span class="badge badge-danger">🔴 ${ps.overdueCount} mês(es)</span>`; }
+        else if (ps.status === 'pending') { rowClass = 'row-pending'; statusBadge = '<span class="badge badge-warning">🟡 Pendente</span>'; }
+        else statusBadge = '<span class="badge badge-success">✅ Em dia</span>';
+        const lastPaymentText = ps.lastPaidDate ? ps.lastPaidDate.toLocaleDateString('pt-BR') : '—';
+        const whatsappClean = client.whatsapp ? client.whatsapp.replace(/\D/g, '') : '';
+        const unpaidMonth = getOldestUnpaidMonth(client);
+        const isFullyPaid = !unpaidMonth;
+        return `<tr class="${rowClass}">
+            <td><strong>${escapeHtml(client.name)}</strong></td>
+            <td>${whatsappClean ? `<a href="https://wa.me/55${whatsappClean}" target="_blank" class="btn btn-whatsapp btn-xs">💬 WhatsApp</a>` : '—'}</td>
+            <td><span class="badge badge-info">${escapeHtml(client.planName || '—')}</span>${!client.installationPaid ? '<br><small style="color:#ef4444;">Inst. pendente</small>' : ''}</td>
+            <td>${regDate.toLocaleDateString('pt-BR')}</td>
+            <td><strong>${diffDays} dias</strong></td>
+            <td><strong>R$ ${monthlyFee.toFixed(2).replace('.', ',')}</strong></td>
+            <td>${statusBadge}</td>
+            <td>${lastPaymentText}</td>
+            <td><div class="actions-cell">
+                ${!isFullyPaid ? `<button class="btn btn-success btn-xs" onclick="payMonth('${client.id}')">💰 Pagar</button><button class="btn btn-whatsapp btn-xs" onclick="openChargeModal('${client.id}')">💬 Cobrar</button>` : `<button class="btn btn-outline btn-xs" disabled>✅ Pago</button>`}
+                ${!client.installationPaid ? `<button class="btn btn-outline btn-xs" onclick="payInstallation('${client.id}')">🏗️ Instalar</button>` : ''}
+                <button class="btn btn-outline btn-xs" onclick="editClient('${client.id}')">✏️</button>
+                <button class="btn btn-danger btn-xs" onclick="deleteClient('${client.id}')">🗑️</button>
+            </div></td>
+        </tr>`;
+    }).join('');
+}
+
+function updateStats() {
+    let total = allClients.length, emDia = 0, atrasados = 0, receita = 0;
+    allClients.forEach(c => {
+        const ps = getPaymentStatus(c);
+        if (ps.status === 'ok') emDia++;
+        if (ps.status === 'overdue') atrasados++;
+        receita += (c.monthlyFee || PLANOS[c.plan]?.mensalidade || 0);
+    });
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statEmDia').textContent = emDia;
+    document.getElementById('statAtrasados').textContent = atrasados;
+    document.getElementById('statReceita').innerHTML = `R$ ${receita.toFixed(2).replace('.', ',')}`;
+}
+
+window.payMonth = async function(clientId) {
+    const client = allClients.find(c => c.id === clientId);
+    if (!client) return;
+    const unpaidMonth = getOldestUnpaidMonth(client);
+    if (!unpaidMonth) { showToast('Todos pagos!', 'info'); return; }
+    const monthlyFee = client.monthlyFee || PLANOS[client.plan]?.mensalidade || 0;
+    await db.collection('clients').doc(clientId).update({ payments: [...(client.payments || []), { monthKey: unpaidMonth.monthKey, month: unpaidMonth.month, year: unpaidMonth.year, amount: monthlyFee, status: 'paid', paidAt: firebase.firestore.Timestamp.now() }], updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    showToast('Pagamento registrado!', 'success');
+};
+
+window.payInstallation = function(clientId) { showConfirm('Confirmar', 'Marcar instalação como paga?', async () => { await db.collection('clients').doc(clientId).update({ installationPaid: true }); showToast('Instalação paga!', 'success'); }); };
+window.editClient = function(clientId) { const client = allClients.find(c => c.id === clientId); if (client) openClientModal(client); };
+window.deleteClient = function(clientId) { const client = allClients.find(c => c.id === clientId); showConfirm('Excluir', `Excluir ${escapeHtml(client?.name)}?`, async () => { await db.collection('clients').doc(clientId).delete(); showToast('Excluído.', 'info'); }); };
+
+function generateChargeMessage(clientName, planName, monthlyFee, monthRef, link) {
+    return `Olá ${clientName}, tudo bem? 😊\n\nSua mensalidade do ${planName} no valor de R$ ${monthlyFee.toFixed(2).replace('.', ',')} referente ao mês de ${monthRef} está pendente.\n\nLink de pagamento: ${link}\n\nCaso já tenha pago, desconsidere esta mensagem.\n\nAtenciosamente!`;
+}
+
+window.openChargeModal = function(clientId) {
+    const client = allClients.find(c => c.id === clientId);
+    if (!client) return;
+    const unpaidMonth = getOldestUnpaidMonth(client);
+    if (!unpaidMonth) { showToast('Sem mensalidades pendentes.', 'info'); return; }
+    const plano = PLANOS[client.plan] || PLANOS.basico;
+    const monthRef = `${unpaidMonth.month}/${unpaidMonth.year}`;
+    const monthlyFee = client.monthlyFee || plano.mensalidade;
+    const msg = generateChargeMessage(client.name, client.planName || plano.nome, monthlyFee, monthRef, plano.linkPagamento);
+    document.getElementById('chargeClientInfo').innerHTML = `<strong>Cliente:</strong> ${escapeHtml(client.name)}<br><strong>Plano:</strong> ${escapeHtml(client.planName || plano.nome)}<br><strong>WhatsApp:</strong> ${escapeHtml(client.whatsapp)}`;
+    document.getElementById('chargeMonthRef').value = monthRef;
+    document.getElementById('chargeAmount').value = `R$ ${monthlyFee.toFixed(2).replace('.', ',')}`;
+    document.getElementById('chargeMessagePreview').textContent = msg;
+    document.getElementById('chargeClientId').value = clientId;
+    document.getElementById('chargeModalOverlay').classList.add('active');
+};
+
+document.getElementById('btnSendCharge').addEventListener('click', () => {
+    const clientId = document.getElementById('chargeClientId').value;
+    const client = allClients.find(c => c.id === clientId);
+    if (!client) return;
+    const unpaidMonth = getOldestUnpaidMonth(client);
+    const plano = PLANOS[client.plan] || PLANOS.basico;
+    const msg = generateChargeMessage(client.name, client.planName || plano.nome, client.monthlyFee || plano.mensalidade, `${unpaidMonth.month}/${unpaidMonth.year}`, plano.linkPagamento);
+    const whatsappNumber = client.whatsapp.replace(/\D/g, '');
+    window.open(`https://wa.me/55${whatsappNumber}?text=${encodeURIComponent(msg)}`, '_blank');
+    document.getElementById('chargeModalOverlay').classList.remove('active');
+});
+document.getElementById('btnCancelCharge').addEventListener('click', () => document.getElementById('chargeModalOverlay').classList.remove('active'));
+
+// Modal Cliente
+const clientModal = document.getElementById('clientModalOverlay');
+document.getElementById('btnAddClient').addEventListener('click', () => openClientModal());
+document.getElementById('btnCancelClient').addEventListener('click', () => clientModal.classList.remove('active'));
+function openClientModal(client = null) {
+    document.getElementById('modalTitle').textContent = client ? '✏️ Editar Cliente' : '➕ Novo Cliente';
+    document.getElementById('clientName').value = client?.name || '';
+    document.getElementById('clientWhatsapp').value = client?.whatsapp || '';
+    document.getElementById('clientPlan').value = client?.plan || 'basico';
+    document.getElementById('clientDate').value = client?.registrationDate?.toDate?.()?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0];
+    document.getElementById('clientInstallPaid').checked = client?.installationPaid || false;
+    document.getElementById('editingClientId').value = client?.id || '';
+    clientModal.classList.add('active');
+}
+document.getElementById('btnSaveClient').addEventListener('click', async () => {
+    const data = {
+        name: document.getElementById('clientName').value.trim(),
+        whatsapp: document.getElementById('clientWhatsapp').value.trim(),
+        plan: document.getElementById('clientPlan').value,
+        planName: PLANOS[document.getElementById('clientPlan').value].nome,
+        installationFee: PLANOS[document.getElementById('clientPlan').value].instalacao,
+        monthlyFee: PLANOS[document.getElementById('clientPlan').value].mensalidade,
+        registrationDate: firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('clientDate').value + 'T00:00:00')),
+        installationPaid: document.getElementById('clientInstallPaid').checked,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    const editId = document.getElementById('editingClientId').value;
+    if (editId) {
+        const existing = await db.collection('clients').doc(editId).get();
+        data.payments = existing.data()?.payments || [];
+        data.createdAt = existing.data()?.createdAt;
+        await db.collection('clients').doc(editId).update(data);
+    } else {
+        data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        data.payments = [];
+        await db.collection('clients').add(data);
+    }
+    clientModal.classList.remove('active');
+    showToast('Salvo!', 'success');
+});
+
+// ==================== REGRAS ====================
+function loadRules() {
+    db.collection('clients').doc('_rules_storage').get().then(doc => {
+        if (doc.exists && doc.data().rules) allRules = doc.data().rules;
+        else { try { const stored = localStorage.getItem('sgclient_rules'); if (stored) allRules = JSON.parse(stored); } catch(e) {} }
+        renderRulesGrid();
+    }).catch(() => { try { const stored = localStorage.getItem('sgclient_rules'); if (stored) allRules = JSON.parse(stored); } catch(e) {} renderRulesGrid(); });
+}
+async function saveRules() {
+    try { await db.collection('clients').doc('_rules_storage').set({ rules: allRules, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }); } catch(e) {}
+    localStorage.setItem('sgclient_rules', JSON.stringify(allRules));
+}
+function renderRulesGrid() {
+    const grid = document.getElementById('rulesGrid');
+    if (!allRules.length) { grid.innerHTML = '<div class="empty-state">📋 Nenhuma regra cadastrada</div>'; return; }
+    grid.innerHTML = allRules.map(rule => `<div class="rule-card"><div class="rule-card-header"><h3>📄 ${escapeHtml(rule.name)}</h3><span class="badge badge-info">${rule.code?.length || 0} caracteres</span></div><div class="rule-card-body"><div class="code-label">Código HTML <button class="copy-btn" onclick="copyRuleCode('${rule.id}')">📋 Copiar</button></div><div class="code-block" id="code-${rule.id}">${escapeHtml(rule.code || '')}</div>${rule.firebaseRules ? `<div class="code-label">Regras Firebase <button class="copy-btn" onclick="copyRuleFirebase('${rule.id}')">📋 Copiar</button></div><div class="code-block" id="fb-${rule.id}">${escapeHtml(rule.firebaseRules)}</div>` : ''}${rule.notes ? `<p style="margin-top:8px;font-size:0.85rem;">📝 ${escapeHtml(rule.notes)}</p>` : ''}</div><div class="rule-card-footer"><button class="btn btn-outline btn-sm" onclick="editRule('${rule.id}')">✏️</button><button class="btn btn-danger btn-sm" onclick="deleteRule('${rule.id}')">🗑️</button></div></div>`).join('');
+}
+window.copyRuleCode = function(ruleId) { const el = document.getElementById(`code-${ruleId}`); if(el) { navigator.clipboard.writeText(el.textContent); showToast('Código copiado!', 'success'); } };
+window.copyRuleFirebase = function(ruleId) { const el = document.getElementById(`fb-${ruleId}`); if(el) { navigator.clipboard.writeText(el.textContent); showToast('Regras copiadas!', 'success'); } };
+window.editRule = function(ruleId) { const rule = allRules.find(r => r.id === ruleId); if(rule) openRuleModal(rule); };
+window.deleteRule = function(ruleId) { showConfirm('Excluir', 'Excluir esta regra?', async () => { allRules = allRules.filter(r => r.id !== ruleId); await saveRules(); renderRulesGrid(); }); };
+const ruleModal = document.getElementById('ruleModalOverlay');
+document.getElementById('btnAddRule').addEventListener('click', () => openRuleModal());
+document.getElementById('btnCancelRule').addEventListener('click', () => ruleModal.classList.remove('active'));
+function openRuleModal(rule = null) {
+    document.getElementById('ruleModalTitle').textContent = rule ? '✏️ Editar Regra' : '➕ Nova Regra';
+    document.getElementById('ruleName').value = rule?.name || '';
+    document.getElementById('ruleCode').value = rule?.code || '';
+    document.getElementById('ruleFirebase').value = rule?.firebaseRules || '';
+    document.getElementById('ruleNotes').value = rule?.notes || '';
+    document.getElementById('editingRuleId').value = rule?.id || '';
+    ruleModal.classList.add('active');
+}
+document.getElementById('btnSaveRule').addEventListener('click', async () => {
+    const name = document.getElementById('ruleName').value.trim();
+    const code = document.getElementById('ruleCode').value.trim();
+    if (!name || !code) { showToast('Preencha nome e código.', 'error'); return; }
+    const editId = document.getElementById('editingRuleId').value;
+    if (editId) {
+        const idx = allRules.findIndex(r => r.id === editId);
+        if (idx !== -1) allRules[idx] = { ...allRules[idx], name, code, firebaseRules: document.getElementById('ruleFirebase').value.trim(), notes: document.getElementById('ruleNotes').value.trim(), updatedAt: new Date().toISOString() };
+    } else {
+        allRules.push({ id: 'rule_' + Date.now(), name, code, firebaseRules: document.getElementById('ruleFirebase').value.trim(), notes: document.getElementById('ruleNotes').value.trim(), createdAt: new Date().toISOString() });
+    }
+    await saveRules();
+    ruleModal.classList.remove('active');
+    renderRulesGrid();
+    showToast('Regra salva!', 'success');
+});
+
+// Filtros
+document.getElementById('searchInput').addEventListener('input', (e) => { searchQuery = e.target.value; renderTable(); updateStats(); });
+document.getElementById('filterStatus').addEventListener('change', (e) => { currentFilter = e.target.value; renderTable(); updateStats(); });
+
+// Fechar modais com ESC
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active, .confirm-overlay.active').forEach(el => el.classList.remove('active'));
+    }
+});
+
+console.log('🚀 SGClient Admin com Dashboard de Estatísticas!');
+</script>
+</body>
+</html>
