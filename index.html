@@ -1,0 +1,1965 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGClient - Gestão de Clientes</title>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js">
+    </script>
+
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+    </script>
+
+    <style>
+        :root {
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --surface-alt: #f8fafc;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --primary: #4f46e5;
+            --primary-light: #eef2ff;
+            --primary-hover: #4338ca;
+            --success: #10b981;
+            --success-light: #ecfdf5;
+            --warning: #f59e0b;
+            --warning-light: #fffbeb;
+            --danger: #ef4444;
+            --danger-light: #fef2f2;
+            --info: #0ea5e9;
+            --info-light: #f0f9ff;
+            --purple: #8b5cf6;
+            --purple-light: #f3e8ff;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
+            --radius-sm: 8px;
+            --radius: 12px;
+            --radius-lg: 16px;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .login-overlay {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #1e1b4b 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.4s;
+        }
+
+        .login-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .login-card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 40px 36px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: var(--shadow-lg);
+            text-align: center;
+        }
+
+        .login-card .logo-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--primary);
+            border-radius: var(--radius);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            font-size: 28px;
+            color: #fff;
+        }
+
+        .login-card h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .login-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+
+        .login-card .form-group {
+            text-align: left;
+            margin-bottom: 16px;
+        }
+
+        .login-card label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+        }
+
+        .login-card input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            background: var(--surface-alt);
+        }
+
+        .login-card input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .login-card .btn-login {
+            width: 100%;
+            padding: 13px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        .login-card .btn-login:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .login-error {
+            color: var(--danger);
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px 24px;
+            display: none;
+        }
+
+        .app-container.visible {
+            display: block;
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition);
+            border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+            position: relative;
+        }
+
+        .tab-btn:hover {
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary);
+            border-radius: 3px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .app-header .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .app-header .brand .icon {
+            width: 42px;
+            height: 42px;
+            background: var(--primary);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 20px;
+        }
+
+        .app-header .brand h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 18px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: #fff;
+            color: var(--text);
+            border: 2px solid var(--border);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .btn-danger {
+            background: #fff;
+            color: var(--danger);
+            border: 2px solid #fecaca;
+        }
+
+        .btn-danger:hover {
+            background: var(--danger-light);
+            border-color: var(--danger);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-whatsapp {
+            background: #25d366;
+            color: #fff;
+        }
+
+        .btn-whatsapp:hover {
+            background: #128c7e;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+
+        .btn-xs {
+            padding: 4px 10px;
+            font-size: 0.75rem;
+        }
+
+        /* Stats Cards */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .stat-card .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+        .stat-card .stat-icon.blue {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .stat-card .stat-icon.green {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .stat-card .stat-icon.red {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+
+        .stat-card .stat-icon.amber {
+            background: var(--warning-light);
+            color: var(--warning);
+        }
+
+        .stat-card .stat-icon.purple {
+            background: #f3e8ff;
+            color: #9333ea;
+        }
+
+        .stat-card .stat-icon.info {
+            background: var(--info-light);
+            color: var(--info);
+        }
+
+        .stat-card .stat-info .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .stat-card .stat-info .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .chart-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+            margin-bottom: 30px;
+        }
+
+        .chart-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 20px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .chart-card h3 {
+            margin-bottom: 16px;
+            font-size: 1.1rem;
+        }
+
+        canvas {
+            max-height: 300px;
+            width: 100%;
+        }
+
+        .table-container {
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .table-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface-alt);
+        }
+
+        .table-toolbar .search-input {
+            padding: 9px 14px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            width: 280px;
+        }
+
+        .table-toolbar .filter-select {
+            padding: 9px 14px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            background: #fff;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1150px;
+        }
+
+        table thead {
+            background: var(--surface-alt);
+        }
+
+        table thead th {
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border);
+        }
+
+        table tbody td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        table tbody tr.row-overdue {
+            background: #fef2f2;
+            border-left: 3px solid var(--danger);
+        }
+
+        table tbody tr.row-pending {
+            background: #fffbeb;
+            border-left: 3px solid var(--warning);
+        }
+
+        table tbody tr.row-trial {
+            background: #f0f9ff;
+            border-left: 3px solid var(--info);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: var(--success-light);
+            color: #065f46;
+        }
+
+        .badge-warning {
+            background: var(--warning-light);
+            color: #92400e;
+        }
+
+        .badge-danger {
+            background: var(--danger-light);
+            color: #991b1b;
+        }
+
+        .badge-info {
+            background: var(--primary-light);
+            color: #3730a3;
+        }
+
+        .badge-trial {
+            background: var(--info-light);
+            color: #0c4a6e;
+            border: 1px solid var(--info);
+        }
+
+        .badge-bonus {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
+        .actions-cell {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .trial-info-box {
+            background: #f0f9ff;
+            border: 2px solid #0ea5e9;
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            margin: 12px 0;
+        }
+
+        .trial-info-box h4 {
+            color: #0c4a6e;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+
+        .trial-info-box .trial-dates {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .trial-info-box label {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #0c4a6e;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .trial-info-box input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #bae6fd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            padding: 32px 28px;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: var(--shadow-lg);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal h3 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .modal .form-group {
+            margin-bottom: 16px;
+        }
+
+        .modal label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+
+        .modal input,
+        .modal select,
+        .modal textarea {
+            width: 100%;
+            padding: 11px 14px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            background: #f9fafb;
+        }
+
+        .modal textarea {
+            min-height: 120px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .modal .btn-row {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .charge-preview {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            margin: 12px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+        }
+
+        .plan-info-box {
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: #3730a3;
+        }
+
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 14px 20px;
+            border-radius: var(--radius-sm);
+            color: #fff;
+            font-weight: 600;
+            box-shadow: var(--shadow-lg);
+            animation: slideIn 0.35s ease;
+        }
+
+        .toast.success {
+            background: #059669;
+        }
+
+        .toast.error {
+            background: #dc2626;
+        }
+
+        .toast.info {
+            background: #4f46e5;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(120%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2500;
+            opacity: 0;
+            visibility: hidden;
+            transition: 0.2s;
+        }
+
+        .confirm-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .confirm-dialog {
+            background: #fff;
+            border-radius: var(--radius);
+            padding: 28px 24px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .confirm-dialog .btn-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: var(--text-secondary);
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 12px 0;
+        }
+
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checkbox-wrapper label {
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .app-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .chart-row {
+                grid-template-columns: 1fr;
+            }
+
+            .trial-info-box .trial-dates {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-card">
+            <div class="logo-icon">🔐</div>
+            <h1>SGClient Admin</h1>
+            <p>Faça login para acessar o sistema</p>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="loginEmail" placeholder="seu@email.com">
+            </div>
+            <div class="form-group">
+                <label>Senha</label>
+                <input type="password" id="loginPassword" placeholder="••••••••">
+            </div>
+            <button class="btn-login" id="btnLogin">Entrar</button>
+            <div class="login-error" id="loginError"></div>
+        </div>
+    </div>
+
+    <div class="app-container" id="appContainer">
+        <!-- TABS -->
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="clientes">👥 Clientes</button>
+            <button class="tab-btn" data-tab="estatisticas">📊 Estatísticas</button>
+        </div>
+
+        <!-- TAB CLIENTES -->
+        <div class="tab-content active" id="tabClientes">
+            <div class="app-header">
+                <div class="brand">
+                    <div class="icon">📊</div>
+                    <h2>Gestão de Clientes</h2>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-primary" id="btnAddClient">➕ Novo Cliente</button>
+                    <button class="btn btn-outline" id="btnLogout">🚪 Sair</button>
+                </div>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon blue">👥</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statTotal">0</div>
+                        <div class="stat-label">Total de Clientes</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">✅</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statEmDia">0</div>
+                        <div class="stat-label">Em Dia</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon info">🧪</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statEmTeste">0</div>
+                        <div class="stat-label">Em Teste Grátis</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon red">⚠️</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statAtrasados">0</div>
+                        <div class="stat-label">Com Atraso</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon amber">💰</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statReceita">R$ 0</div>
+                        <div class="stat-label">Receita Mensal</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <div class="table-toolbar">
+                    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Buscar por nome ou WhatsApp...">
+                    <select class="filter-select" id="filterStatus">
+                        <option value="todos">Todos os status</option>
+                        <option value="emTeste">🧪 Em Teste Grátis</option>
+                        <option value="emDia">✅ Em dia</option>
+                        <option value="pendente">🟡 Pendente</option>
+                        <option value="atrasado">🔴 Atrasados</option>
+                    </select>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>WhatsApp</th>
+                                <th>Plano</th>
+                                <th>Inscrição</th>
+                                <th>Teste Grátis</th>
+                                <th>Dias</th>
+                                <th>Mensalidade</th>
+                                <th>Status</th>
+                                <th>Último Pagto</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB ESTATÍSTICAS -->
+        <div class="tab-content" id="tabEstatisticas">
+            <div class="app-header">
+                <div class="brand">
+                    <div class="icon">📈</div>
+                    <h2>Dashboard de Estatísticas</h2>
+                </div>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon blue">👁️</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statVisitasLoja">0</div>
+                        <div class="stat-label">Visitas na Loja</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">💬</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statCliquesWhats">0</div>
+                        <div class="stat-label">Cliques no WhatsApp</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple">📊</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statTaxaConversao">0%</div>
+                        <div class="stat-label">Taxa de Conversão</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon amber">👤</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statAcessosAdmin">0</div>
+                        <div class="stat-label">Acessos ao Admin</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-row">
+                <div class="chart-card">
+                    <h3>📈 Visitas vs Cliques</h3>
+                    <canvas id="visitasChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>💰 Receita por Plano</h3>
+                    <canvas id="receitaChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-row">
+                <div class="chart-card">
+                    <h3>👥 Distribuição de Planos</h3>
+                    <canvas id="planosChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>📅 Clientes por Status</h3>
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modais -->
+    <div class="modal-overlay" id="clientModalOverlay">
+        <div class="modal">
+            <h3 id="modalTitle">➕ Novo Cliente</h3>
+            <div class="form-group"><label>Nome completo</label><input type="text" id="clientName"></div>
+            <div class="form-group"><label>WhatsApp</label><input type="text" id="clientWhatsapp" placeholder="(DDD) 9XXXX-XXXX"></div>
+            <div class="form-group">
+                <label>Plano</label>
+                <select id="clientPlan">
+                    <optgroup label="💈 Barbearia">
+                        <option value="basic">Barbearia Basic - R$39,90 + R$29,90/mês</option>
+                        <option value="premium">Barbearia Premium - Grátis + R$49,90/mês</option>
+                    </optgroup>
+                    <optgroup label="💇 Salão">
+                        <option value="basic_bonus">Salão Basic - R$39,90 + R$29,90/mês</option>
+                        <option value="premium_bonus">Salão Premium - Grátis + R$49,90/mês</option>
+                    </optgroup>
+                </select>
+                <div class="plan-info-box" id="planInfoBox"></div>
+            </div>
+            <div class="form-group"><label>Data inscrição</label><input type="date" id="clientDate"></div>
+            
+            <!-- Seção de 7 Dias Grátis -->
+            <div class="trial-info-box">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" id="trialActive">
+                    <label for="trialActive">🧪 Ativar 7 Dias Grátis</label>
+                </div>
+                <div class="trial-dates" id="trialDatesSection" style="display:none;">
+                    <div>
+                        <label>Início do Teste</label>
+                        <input type="date" id="trialStartDate">
+                    </div>
+                    <div>
+                        <label>Fim do Teste</label>
+                        <input type="date" id="trialEndDate" readonly>
+                    </div>
+                </div>
+            </div>
+
+            <input type="hidden" id="editingClientId">
+            <div class="btn-row"><button class="btn btn-outline" id="btnCancelClient">Cancelar</button><button class="btn btn-primary" id="btnSaveClient">💾 Salvar</button></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="chargeModalOverlay">
+        <div class="modal">
+            <h3>💰 Cobrar Mensalidade</h3>
+            <div class="charge-info" id="chargeClientInfo"></div>
+            <div class="form-group"><label>Mês Referência</label><input type="text" id="chargeMonthRef" readonly></div>
+            <div class="form-group"><label>Valor</label><input type="text" id="chargeAmount" readonly></div>
+            <div class="form-group"><label>Mensagem</label><div class="charge-preview" id="chargeMessagePreview"></div></div>
+            <input type="hidden" id="chargeClientId">
+            <div class="btn-row"><button class="btn btn-outline" id="btnCancelCharge">Cancelar</button><button class="btn btn-whatsapp" id="btnSendCharge">💬 Enviar WhatsApp</button></div>
+        </div>
+    </div>
+
+    <div class="confirm-overlay" id="confirmOverlay">
+        <div class="confirm-dialog">
+            <h4 id="confirmTitle">Confirmação</h4>
+            <p id="confirmMessage">Tem certeza?</p>
+            <div class="btn-row"><button class="btn btn-outline" id="btnConfirmCancel">Cancelar</button><button class="btn btn-danger" id="btnConfirmOk">Confirmar</button></div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // ==================== FIREBASE CONFIG ====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAZvfBg_FNdmifOPJH1ZY6ZWyXvaXIbJkY",
+            authDomain: "banco-de88a.firebaseapp.com",
+            projectId: "banco-de88a",
+            storageBucket: "banco-de88a.firebasestorage.app",
+            messagingSenderId: "742161187025",
+            appId: "1:742161187025:web:8803bccbafe96e7422c5f0"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // ==================== CONSTANTES ====================
+        const PLANOS = {
+            basic: {
+                nome: 'Barbearia Basic',
+                instalacao: 39.90,
+                mensalidade: 29.90,
+                linkPagamento: 'https://pag.ae/81M9Sg47L',
+                isBonus: false,
+                mesesInclusos: 0,
+                tipo: 'Sistema para Barbearia',
+                diasTesteGratis: 7
+            },
+            premium: {
+                nome: 'Barbearia Premium',
+                instalacao: 0,
+                mensalidade: 49.90,
+                linkPagamento: 'https://pag.ae/81M9V8SKp',
+                isBonus: false,
+                mesesInclusos: 0,
+                tipo: 'Sistema para Barbearia',
+                diasTesteGratis: 7
+            },
+            basic_bonus: {
+                nome: 'Salão Basic',
+                instalacao: 39.90,
+                mensalidade: 29.90,
+                linkPagamento: 'https://pag.ae/81M9WaV9p',
+                isBonus: true,
+                mesesInclusos: 0,
+                valorPacote: 39.90,
+                tipo: 'Sistema para Salão',
+                diasTesteGratis: 7
+            },
+            premium_bonus: {
+                nome: 'Salão Premium',
+                instalacao: 0,
+                mensalidade: 49.90,
+                linkPagamento: 'https://pag.ae/81M9W_AS5',
+                isBonus: true,
+                mesesInclusos: 0,
+                valorPacote: 0,
+                tipo: 'Sistema para Salão',
+                diasTesteGratis: 7
+            }
+        };
+
+        let allClients = [],
+            currentFilter = 'todos',
+            searchQuery = '',
+            confirmCallback = null;
+        let visitasChart, receitaChart, planosChart, statusChart;
+
+        // DOM Elements
+        const loginOverlay = document.getElementById('loginOverlay');
+        const appContainer = document.getElementById('appContainer');
+        const toastContainer = document.getElementById('toastContainer');
+        const confirmOverlay = document.getElementById('confirmOverlay');
+
+        // ==================== TOAST & CONFIRM ====================
+        function showToast(msg, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = msg;
+            toastContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function showConfirm(title, msg, callback) {
+            document.getElementById('confirmTitle').textContent = title;
+            document.getElementById('confirmMessage').textContent = msg;
+            confirmCallback = callback;
+            confirmOverlay.classList.add('active');
+        }
+        document.getElementById('btnConfirmCancel').addEventListener('click', () => {
+            confirmOverlay.classList.remove('active');
+            confirmCallback = null;
+        });
+        document.getElementById('btnConfirmOk').addEventListener('click', () => {
+            confirmOverlay.classList.remove('active');
+            if (confirmCallback) confirmCallback();
+            confirmCallback = null;
+        });
+
+        // ==================== AUTH ====================
+        document.getElementById('btnLogin').addEventListener('click', async () => {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            if (!email || !password) {
+                document.getElementById('loginError').textContent = 'Preencha email e senha.';
+                return;
+            }
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                registrarAcessoAdmin();
+            } catch (error) {
+                let msg = 'Erro ao autenticar.';
+                if (error.code === 'auth/user-not-found') msg = 'Usuário não encontrado.';
+                if (error.code === 'auth/wrong-password') msg = 'Senha incorreta.';
+                if (error.code === 'auth/invalid-credential') msg = 'Credenciais inválidas.';
+                document.getElementById('loginError').textContent = msg;
+            }
+        });
+
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                loginOverlay.classList.add('hidden');
+                appContainer.classList.add('visible');
+                loadClientsRealtime();
+                carregarEstatisticas();
+                iniciarTabs();
+            } else {
+                loginOverlay.classList.remove('hidden');
+                appContainer.classList.remove('visible');
+            }
+        });
+
+        document.getElementById('btnLogout').addEventListener('click', () => auth.signOut());
+
+        // ==================== 7 DIAS GRÁTIS ====================
+        document.getElementById('trialActive').addEventListener('change', function() {
+            const datesSection = document.getElementById('trialDatesSection');
+            if (this.checked) {
+                datesSection.style.display = 'grid';
+                // Define data de início como hoje se estiver vazio
+                if (!document.getElementById('trialStartDate').value) {
+                    const hoje = new Date().toISOString().split('T')[0];
+                    document.getElementById('trialStartDate').value = hoje;
+                }
+                atualizarDataFimTeste();
+            } else {
+                datesSection.style.display = 'none';
+                document.getElementById('trialStartDate').value = '';
+                document.getElementById('trialEndDate').value = '';
+            }
+        });
+
+        document.getElementById('trialStartDate').addEventListener('change', function() {
+            atualizarDataFimTeste();
+        });
+
+        function atualizarDataFimTeste() {
+            const startDate = document.getElementById('trialStartDate').value;
+            if (startDate) {
+                const inicio = new Date(startDate + 'T00:00:00');
+                inicio.setDate(inicio.getDate() + 7);
+                const fim = inicio.toISOString().split('T')[0];
+                document.getElementById('trialEndDate').value = fim;
+            }
+        }
+
+        function isInTrialPeriod(client) {
+            if (!client.trialActive) return false;
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            
+            const trialStart = client.trialStartDate ? new Date(client.trialStartDate + 'T00:00:00') : null;
+            const trialEnd = client.trialEndDate ? new Date(client.trialEndDate + 'T00:00:00') : null;
+            
+            if (!trialStart || !trialEnd) return false;
+            
+            return now >= trialStart && now <= trialEnd;
+        }
+
+        function getTrialStatus(client) {
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            
+            if (!client.trialActive) return null;
+            
+            const trialEnd = client.trialEndDate ? new Date(client.trialEndDate + 'T00:00:00') : null;
+            if (!trialEnd) return null;
+            
+            if (now <= trialEnd && isInTrialPeriod(client)) {
+                const diasRestantes = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24));
+                return { status: 'active', diasRestantes };
+            } else if (now > trialEnd) {
+                return { status: 'expired', diasRestantes: 0 };
+            }
+            
+            return null;
+        }
+
+        // ==================== INFO DO PLANO NO MODAL ====================
+        document.getElementById('clientPlan').addEventListener('change', function() {
+            const plano = PLANOS[this.value];
+            const infoBox = document.getElementById('planInfoBox');
+
+            infoBox.innerHTML = `
+                📋 <strong>${plano.nome}</strong><br>
+                📋 <strong>${plano.tipo}</strong><br>
+                💰 Instalação: ${plano.instalacao === 0 ? 'GRÁTIS' : 'R$ ' + plano.instalacao.toFixed(2).replace('.', ',')}<br>
+                📅 Mensalidade: R$ ${plano.mensalidade.toFixed(2).replace('.', ',')}/mês<br>
+                🧪 <strong>7 Dias Grátis Disponíveis</strong>
+            `;
+            infoBox.style.display = 'block';
+        });
+
+        // ==================== TABS ====================
+        function iniciarTabs() {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.dataset.tab;
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.getElementById(`tab${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`).classList.add('active');
+
+                    if (tabId === 'estatisticas') {
+                        carregarEstatisticas();
+                    }
+                });
+            });
+        }
+
+        // ==================== ESTATÍSTICAS ====================
+        async function registrarAcessoAdmin() {
+            const ref = db.collection('estatisticas').doc('acessos_admin');
+            try {
+                const doc = await ref.get();
+                if (doc.exists) {
+                    await ref.update({
+                        total: (doc.data().total || 0) + 1,
+                        ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } else {
+                    await ref.set({
+                        total: 1,
+                        criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function carregarEstatisticas() {
+            try {
+                const visitasDoc = await db.collection('estatisticas').doc('visitas_loja').get();
+                const cliquesDoc = await db.collection('estatisticas').doc('cliques_whatsapp').get();
+                const adminDoc = await db.collection('estatisticas').doc('acessos_admin').get();
+
+                const visitas = visitasDoc.exists ? visitasDoc.data().total || 0 : 0;
+                const cliques = cliquesDoc.exists ? cliquesDoc.data().total || 0 : 0;
+                const adminAcessos = adminDoc.exists ? adminDoc.data().total || 0 : 0;
+
+                document.getElementById('statVisitasLoja').textContent = visitas.toLocaleString('pt-BR');
+                document.getElementById('statCliquesWhats').textContent = cliques.toLocaleString('pt-BR');
+                document.getElementById('statAcessosAdmin').textContent = adminAcessos.toLocaleString('pt-BR');
+
+                const taxaConversao = visitas > 0 ? ((cliques / visitas) * 100).toFixed(1) : 0;
+                document.getElementById('statTaxaConversao').textContent = `${taxaConversao}%`;
+
+                // Gráfico de visitas vs cliques
+                if (visitasChart) visitasChart.destroy();
+                const ctx1 = document.getElementById('visitasChart')?.getContext('2d');
+                if (ctx1) {
+                    visitasChart = new Chart(ctx1, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Visitas na Loja', 'Cliques WhatsApp'],
+                            datasets: [{
+                                label: 'Total',
+                                data: [visitas, cliques],
+                                backgroundColor: ['#4f46e5', '#25d366'],
+                                borderRadius: 8
+                            }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: true }
+                    });
+                }
+
+                // Estatísticas dos clientes
+                const clientesPorPlano = { basic: 0, premium: 0, basic_bonus: 0, premium_bonus: 0 };
+                const clientesPorStatus = { emTeste: 0, emDia: 0, pendente: 0, atrasado: 0 };
+                let receitaPorPlano = { basic: 0, premium: 0, basic_bonus: 0, premium_bonus: 0 };
+
+                allClients.forEach(c => {
+                    const plano = c.plan || 'basic';
+                    if (clientesPorPlano.hasOwnProperty(plano)) {
+                        clientesPorPlano[plano]++;
+                        receitaPorPlano[plano] += (c.monthlyFee || PLANOS[plano]?.mensalidade || 0);
+                    }
+
+                    // Verificar se está em período de teste
+                    if (isInTrialPeriod(c)) {
+                        clientesPorStatus.emTeste++;
+                    } else {
+                        const ps = getPaymentStatus(c);
+                        if (ps.status === 'ok') clientesPorStatus.emDia++;
+                        else if (ps.status === 'pending') clientesPorStatus.pendente++;
+                        else clientesPorStatus.atrasado++;
+                    }
+                });
+
+                if (receitaChart) receitaChart.destroy();
+                const ctx2 = document.getElementById('receitaChart')?.getContext('2d');
+                if (ctx2) {
+                    receitaChart = new Chart(ctx2, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Barbearia Basic', 'Barbearia Premium', 'Salão Basic', 'Salão Premium'],
+                            datasets: [{
+                                label: 'Receita (R$)',
+                                data: [receitaPorPlano.basic, receitaPorPlano.premium,
+                                    receitaPorPlano.basic_bonus, receitaPorPlano.premium_bonus
+                                ],
+                                backgroundColor: ['#4f46e5', '#f59e0b', '#10b981', '#8b5cf6']
+                            }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: true }
+                    });
+                }
+
+                if (planosChart) planosChart.destroy();
+                const ctx3 = document.getElementById('planosChart')?.getContext('2d');
+                if (ctx3) {
+                    planosChart = new Chart(ctx3, {
+                        type: 'pie',
+                        data: {
+                            labels: ['Barbearia Basic', 'Barbearia Premium', 'Salão Basic', 'Salão Premium'],
+                            datasets: [{
+                                data: [clientesPorPlano.basic, clientesPorPlano.premium,
+                                    clientesPorPlano.basic_bonus, clientesPorPlano.premium_bonus
+                                ],
+                                backgroundColor: ['#4f46e5', '#f59e0b', '#10b981', '#8b5cf6']
+                            }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: true }
+                    });
+                }
+
+                if (statusChart) statusChart.destroy();
+                const ctx4 = document.getElementById('statusChart')?.getContext('2d');
+                if (ctx4) {
+                    statusChart = new Chart(ctx4, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Em Teste', 'Em Dia', 'Pendente', 'Atrasado'],
+                            datasets: [{
+                                label: 'Quantidade',
+                                data: [clientesPorStatus.emTeste, clientesPorStatus.emDia, clientesPorStatus.pendente,
+                                    clientesPorStatus.atrasado
+                                ],
+                                backgroundColor: ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444'],
+                                borderRadius: 8
+                            }]
+                        },
+                        options: { 
+                            responsive: true, 
+                            maintainAspectRatio: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+            } catch (e) {
+                console.error('Erro ao carregar estatísticas:', e);
+            }
+        }
+
+        // ==================== CLIENTES ====================
+        function loadClientsRealtime() {
+            db.collection('clients').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
+                allClients = [];
+                snapshot.forEach(doc => {
+                    if (doc.id !== '_rules_storage') allClients.push({ id: doc.id, ...doc.data() });
+                });
+                renderTable();
+                updateStats();
+                carregarEstatisticas();
+            }, (error) => {
+                console.error('Erro ao carregar clientes:', error);
+                showToast('Erro ao carregar dados. Verifique a conexão.', 'error');
+            });
+        }
+
+        function getPaymentStatus(client) {
+            // Se estiver em período de teste, não verificar pagamentos
+            if (isInTrialPeriod(client)) {
+                return { status: 'trial', overdueCount: 0, lastPaidDate: null };
+            }
+
+            let regDate = client.registrationDate?.toDate?.() || new Date();
+            const now = new Date();
+            const payments = client.payments || [];
+            const paidKeys = new Set(payments.filter(p => p.status === 'paid').map(p => p.monthKey));
+
+            // Se o cliente tem data de fim de teste, começar a cobrar após o teste
+            let effectiveStartDate = regDate;
+            if (client.trialActive && client.trialEndDate) {
+                const trialEnd = new Date(client.trialEndDate + 'T00:00:00');
+                trialEnd.setDate(trialEnd.getDate() + 1); // Começar a cobrar no dia seguinte
+                if (trialEnd > regDate) {
+                    effectiveStartDate = trialEnd;
+                }
+            }
+
+            let overdueCount = 0,
+                hasCurrentPending = false,
+                lastPaidDate = null;
+
+            const paidPayments = payments.filter(p => p.status === 'paid');
+            if (paidPayments.length > 0) {
+                const sorted = [...paidPayments].sort((a, b) => (b.paidAt?.seconds || 0) - (a.paidAt?.seconds || 0));
+                lastPaidDate = sorted[0].paidAt ? new Date(sorted[0].paidAt.seconds * 1000) : null;
+            }
+
+            const plano = PLANOS[client.plan];
+            const mesesInclusos = plano?.mesesInclusos || 0;
+
+            const dueDay = effectiveStartDate.getDate();
+            let current = new Date(effectiveStartDate.getFullYear(), effectiveStartDate.getMonth() + 1, 1);
+            const limit = new Date(now.getFullYear(), now.getMonth(), 1);
+            let monthCount = 0;
+
+            while (current <= limit) {
+                monthCount++;
+                const monthKey = `${current.getFullYear()}-${String(current.getMonth()+1).padStart(2,'0')}`;
+
+                // Pular meses inclusos no bônus
+                if (monthCount <= mesesInclusos) {
+                    if (!paidKeys.has(monthKey)) {
+                        paidKeys.add(monthKey);
+                    }
+                } else if (!paidKeys.has(monthKey)) {
+                    const dueDate = new Date(current.getFullYear(), current.getMonth(), dueDay);
+                    if (now > dueDate) overdueCount++;
+                    else if (current.getMonth() === now.getMonth() && current.getFullYear() === now.getFullYear()) {
+                        hasCurrentPending = true;
+                    }
+                }
+
+                current.setMonth(current.getMonth() + 1);
+            }
+
+            let status = 'ok';
+            if (overdueCount > 0) status = 'overdue';
+            else if (hasCurrentPending) status = 'pending';
+
+            return { status, overdueCount, lastPaidDate };
+        }
+
+        function getOldestUnpaidMonth(client) {
+            if (isInTrialPeriod(client)) return null;
+
+            let regDate = client.registrationDate?.toDate?.() || new Date();
+            const payments = client.payments || [];
+            const paidKeys = new Set(payments.filter(p => p.status === 'paid').map(p => p.monthKey));
+
+            let effectiveStartDate = regDate;
+            if (client.trialActive && client.trialEndDate) {
+                const trialEnd = new Date(client.trialEndDate + 'T00:00:00');
+                trialEnd.setDate(trialEnd.getDate() + 1);
+                if (trialEnd > regDate) {
+                    effectiveStartDate = trialEnd;
+                }
+            }
+
+            const plano = PLANOS[client.plan];
+            const mesesInclusos = plano?.mesesInclusos || 0;
+
+            const dueDay = effectiveStartDate.getDate();
+            let current = new Date(effectiveStartDate.getFullYear(), effectiveStartDate.getMonth() + 1, 1);
+            const limit = new Date();
+            let monthCount = 0;
+
+            while (current <= limit) {
+                monthCount++;
+                const monthKey = `${current.getFullYear()}-${String(current.getMonth()+1).padStart(2,'0')}`;
+
+                if (monthCount <= mesesInclusos) {
+                    current.setMonth(current.getMonth() + 1);
+                    continue;
+                }
+
+                if (!paidKeys.has(monthKey)) {
+                    return { month: current.getMonth() + 1, year: current.getFullYear(), monthKey };
+                }
+                current.setMonth(current.getMonth() + 1);
+            }
+            return null;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function renderTable() {
+            let clients = [...allClients];
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                clients = clients.filter(c => (c.name && c.name.toLowerCase().includes(q)) || (c.whatsapp && c.whatsapp.includes(q)));
+            }
+            if (currentFilter !== 'todos') {
+                clients = clients.filter(c => {
+                    if (currentFilter === 'emTeste') {
+                        return isInTrialPeriod(c);
+                    }
+                    const ps = getPaymentStatus(c);
+                    return currentFilter === 'emDia' ? ps.status === 'ok' :
+                        currentFilter === 'pendente' ? ps.status === 'pending' :
+                        ps.status === 'overdue';
+                });
+            }
+
+            if (clients.length === 0) {
+                document.getElementById('clientsTableBody').innerHTML =
+                    `<tr><td colspan="10"><div class="empty-state">📭 Nenhum cliente encontrado</div></td></tr>`;
+                return;
+            }
+
+            document.getElementById('clientsTableBody').innerHTML = clients.map(client => {
+                const ps = getPaymentStatus(client);
+                const trialStatus = getTrialStatus(client);
+                let regDate = client.registrationDate?.toDate?.() || new Date();
+                const monthlyFee = client.monthlyFee || PLANOS[client.plan]?.mensalidade || 0;
+                const diffDays = Math.floor((new Date() - regDate) / (1000 * 60 * 60 * 24));
+
+                let rowClass = '',
+                    statusBadge = '';
+                
+                if (trialStatus && trialStatus.status === 'active') {
+                    rowClass = 'row-trial';
+                    statusBadge = `<span class="badge badge-trial">🧪 Teste - ${trialStatus.diasRestantes} dias restantes</span>`;
+                } else if (trialStatus && trialStatus.status === 'expired') {
+                    // Teste expirado, verificar pagamentos normalmente
+                    if (ps.status === 'overdue') {
+                        rowClass = 'row-overdue';
+                        statusBadge = `<span class="badge badge-danger">🔴 ${ps.overdueCount} mês(es)</span>`;
+                    } else if (ps.status === 'pending') {
+                        rowClass = 'row-pending';
+                        statusBadge = '<span class="badge badge-warning">🟡 Pendente</span>';
+                    } else {
+                        statusBadge = '<span class="badge badge-success">✅ Em dia</span>';
+                    }
+                } else if (ps.status === 'overdue') {
+                    rowClass = 'row-overdue';
+                    statusBadge = `<span class="badge badge-danger">🔴 ${ps.overdueCount} mês(es)</span>`;
+                } else if (ps.status === 'pending') {
+                    rowClass = 'row-pending';
+                    statusBadge = '<span class="badge badge-warning">🟡 Pendente</span>';
+                } else if (ps.status === 'trial') {
+                    rowClass = 'row-trial';
+                    statusBadge = '<span class="badge badge-trial">🧪 Em Teste</span>';
+                } else {
+                    statusBadge = '<span class="badge badge-success">✅ Em dia</span>';
+                }
+
+                const lastPaymentText = ps.lastPaidDate ? ps.lastPaidDate.toLocaleDateString('pt-BR') : '—';
+                const whatsappClean = client.whatsapp ? client.whatsapp.replace(/\D/g, '') : '';
+                const unpaidMonth = getOldestUnpaidMonth(client);
+                const isFullyPaid = !unpaidMonth || isInTrialPeriod(client);
+                const isBonus = PLANOS[client.plan]?.isBonus;
+
+                // Informações do teste grátis
+                let trialInfo = '—';
+                if (client.trialActive) {
+                    if (client.trialStartDate && client.trialEndDate) {
+                        const inicio = new Date(client.trialStartDate + 'T00:00:00');
+                        const fim = new Date(client.trialEndDate + 'T00:00:00');
+                        trialInfo = `${inicio.toLocaleDateString('pt-BR')} a ${fim.toLocaleDateString('pt-BR')}`;
+                    } else {
+                        trialInfo = 'Ativo';
+                    }
+                }
+
+                // Verificar se ainda está no período de bônus
+                let bonusInfo = '';
+                if (isBonus && !isInTrialPeriod(client)) {
+                    const planInfo = PLANOS[client.plan];
+                    const monthsSinceRegistration = Math.floor((new Date() - regDate) / (1000 * 60 * 60 * 24 * 30.44));
+                    const remainingBonus = Math.max(0, planInfo.mesesInclusos - monthsSinceRegistration);
+                    if (remainingBonus > 0) {
+                        bonusInfo = `<br><span class="badge badge-bonus">🎁 ${remainingBonus} meses bônus</span>`;
+                    }
+                }
+
+                return `<tr class="${rowClass}">
+            <td><strong>${escapeHtml(client.name)}</strong></td>
+            <td>${whatsappClean ? `<a href="https://wa.me/55${whatsappClean}" target="_blank" class="btn btn-whatsapp btn-xs">💬 WhatsApp</a>` : '—'}</td>
+            <td>
+                <span class="badge badge-info">${escapeHtml(client.planName || '—')}</span>
+                ${isBonus ? '<span class="badge badge-bonus">🎁 Bônus</span>' : ''}
+                ${bonusInfo}
+            </td>
+            <td>${regDate.toLocaleDateString('pt-BR')}</td>
+            <td>${trialInfo}</td>
+            <td><strong>${diffDays} dias</strong></td>
+            <td><strong>R$ ${monthlyFee.toFixed(2).replace('.', ',')}</strong></td>
+            <td>${statusBadge}</td>
+            <td>${lastPaymentText}</td>
+            <td><div class="actions-cell">
+                ${!isFullyPaid ? `<button class="btn btn-success btn-xs" onclick="payMonth('${client.id}')">💰 Pagar</button><button class="btn btn-whatsapp btn-xs" onclick="openChargeModal('${client.id}')">💬 Cobrar</button>` : (trialStatus && trialStatus.status === 'active' ? `<span class="badge badge-trial">🧪 Em Teste</span>` : `<button class="btn btn-outline btn-xs" disabled>✅ Pago</button>`)}
+                <button class="btn btn-outline btn-xs" onclick="editClient('${client.id}')">✏️</button>
+                <button class="btn btn-danger btn-xs" onclick="deleteClient('${client.id}')">🗑️</button>
+            </div></td>
+        </tr>`;
+            }).join('');
+        }
+
+        function updateStats() {
+            let total = allClients.length,
+                emDia = 0,
+                emTeste = 0,
+                atrasados = 0,
+                receita = 0;
+            allClients.forEach(c => {
+                if (isInTrialPeriod(c)) {
+                    emTeste++;
+                } else {
+                    const ps = getPaymentStatus(c);
+                    if (ps.status === 'ok') emDia++;
+                    if (ps.status === 'overdue') atrasados++;
+                }
+                receita += (c.monthlyFee || PLANOS[c.plan]?.mensalidade || 0);
+            });
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statEmDia').textContent = emDia;
+            document.getElementById('statEmTeste').textContent = emTeste;
+            document.getElementById('statAtrasados').textContent = atrasados;
+            document.getElementById('statReceita').innerHTML = `R$ ${receita.toFixed(2).replace('.', ',')}`;
+        }
+
+        window.payMonth = async function(clientId) {
+            const client = allClients.find(c => c.id === clientId);
+            if (!client) return;
+            const unpaidMonth = getOldestUnpaidMonth(client);
+            if (!unpaidMonth) {
+                showToast('Todos pagos ou em teste grátis!', 'info');
+                return;
+            }
+            const monthlyFee = client.monthlyFee || PLANOS[client.plan]?.mensalidade || 0;
+            try {
+                await db.collection('clients').doc(clientId).update({
+                    payments: [...(client.payments || []), {
+                        monthKey: unpaidMonth.monthKey,
+                        month: unpaidMonth.month,
+                        year: unpaidMonth.year,
+                        amount: monthlyFee,
+                        status: 'paid',
+                        paidAt: firebase.firestore.Timestamp.now()
+                    }],
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showToast('Pagamento registrado!', 'success');
+            } catch (e) {
+                showToast('Erro ao registrar pagamento.', 'error');
+            }
+        };
+
+        window.editClient = function(clientId) {
+            const client = allClients.find(c => c.id === clientId);
+            if (client) openClientModal(client);
+        };
+
+        window.deleteClient = function(clientId) {
+            const client = allClients.find(c => c.id === clientId);
+            showConfirm('Excluir Cliente', `Tem certeza que deseja excluir ${escapeHtml(client?.name)}?`, async () => {
+                try {
+                    await db.collection('clients').doc(clientId).delete();
+                    showToast('Cliente excluído com sucesso.', 'info');
+                } catch (e) {
+                    showToast('Erro ao excluir cliente.', 'error');
+                }
+            });
+        };
+
+        function generateChargeMessage(clientName, planName, monthlyFee, monthRef, link) {
+            return `Olá ${clientName}, tudo bem? 😊\n\nSua mensalidade do ${planName} no valor de R$ ${monthlyFee.toFixed(2).replace('.', ',')} referente ao mês de ${monthRef} está pendente.\n\nLink de pagamento: ${link}\n\nCaso já tenha pago, envie para esse contato o comprovante de pagamento e desconsidere esta mensagem, vamos verificar e retornar em até 24 horas.\n\nAtenciosamente!`;
+        }
+
+        window.openChargeModal = function(clientId) {
+            const client = allClients.find(c => c.id === clientId);
+            if (!client) return;
+            
+            if (isInTrialPeriod(client)) {
+                showToast('Cliente ainda em período de teste grátis!', 'info');
+                return;
+            }
+            
+            const unpaidMonth = getOldestUnpaidMonth(client);
+            if (!unpaidMonth) {
+                showToast('Sem mensalidades pendentes.', 'info');
+                return;
+            }
+            const plano = PLANOS[client.plan] || PLANOS.basic;
+            const monthRef = `${unpaidMonth.month}/${unpaidMonth.year}`;
+            const monthlyFee = client.monthlyFee || plano.mensalidade;
+            const msg = generateChargeMessage(client.name, client.planName || plano.nome, monthlyFee, monthRef, plano.linkPagamento);
+            document.getElementById('chargeClientInfo').innerHTML =
+                `<strong>Cliente:</strong> ${escapeHtml(client.name)}<br><strong>Plano:</strong> ${escapeHtml(client.planName || plano.nome)}<br><strong>WhatsApp:</strong> ${escapeHtml(client.whatsapp)}`;
+            document.getElementById('chargeMonthRef').value = monthRef;
+            document.getElementById('chargeAmount').value = `R$ ${monthlyFee.toFixed(2).replace('.', ',')}`;
+            document.getElementById('chargeMessagePreview').textContent = msg;
+            document.getElementById('chargeClientId').value = clientId;
+            document.getElementById('chargeModalOverlay').classList.add('active');
+        };
+
+        document.getElementById('btnSendCharge').addEventListener('click', () => {
+            const clientId = document.getElementById('chargeClientId').value;
+            const client = allClients.find(c => c.id === clientId);
+            if (!client) return;
+            const unpaidMonth = getOldestUnpaidMonth(client);
+            if (!unpaidMonth) {
+                showToast('Sem mensalidades pendentes.', 'info');
+                return;
+            }
+            const plano = PLANOS[client.plan] || PLANOS.basic;
+            const msg = generateChargeMessage(
+                client.name,
+                client.planName || plano.nome,
+                client.monthlyFee || plano.mensalidade,
+                `${unpaidMonth.month}/${unpaidMonth.year}`,
+                plano.linkPagamento
+            );
+            const whatsappNumber = client.whatsapp.replace(/\D/g, '');
+            window.open(`https://wa.me/55${whatsappNumber}?text=${encodeURIComponent(msg)}`, '_blank');
+            document.getElementById('chargeModalOverlay').classList.remove('active');
+        });
+
+        document.getElementById('btnCancelCharge').addEventListener('click', () => {
+            document.getElementById('chargeModalOverlay').classList.remove('active');
+        });
+
+        // Modal Cliente
+        const clientModal = document.getElementById('clientModalOverlay');
+        document.getElementById('btnAddClient').addEventListener('click', () => openClientModal());
+        document.getElementById('btnCancelClient').addEventListener('click', () => clientModal.classList.remove('active'));
+
+        function resetTrialFields() {
+            const trialActiveCheckbox = document.getElementById('trialActive');
+            const trialDatesSection = document.getElementById('trialDatesSection');
+            trialActiveCheckbox.checked = false;
+            trialDatesSection.style.display = 'none';
+            document.getElementById('trialStartDate').value = '';
+            document.getElementById('trialEndDate').value = '';
+        }
+
+        function openClientModal(client = null) {
+            document.getElementById('modalTitle').textContent = client ? '✏️ Editar Cliente' : '➕ Novo Cliente';
+            document.getElementById('clientName').value = client?.name || '';
+            document.getElementById('clientWhatsapp').value = client?.whatsapp || '';
+            document.getElementById('clientPlan').value = client?.plan || 'basic';
+            document.getElementById('clientDate').value = client?.registrationDate?.toDate?.()?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0];
+            document.getElementById('editingClientId').value = client?.id || '';
+
+            // Configurar teste grátis
+            if (client?.trialActive) {
+                document.getElementById('trialActive').checked = true;
+                document.getElementById('trialDatesSection').style.display = 'grid';
+                document.getElementById('trialStartDate').value = client.trialStartDate || '';
+                document.getElementById('trialEndDate').value = client.trialEndDate || '';
+            } else {
+                resetTrialFields();
+            }
+
+            // Atualizar info do plano
+            document.getElementById('clientPlan').dispatchEvent(new Event('change'));
+
+            clientModal.classList.add('active');
+        }
+
+        document.getElementById('btnSaveClient').addEventListener('click', async () => {
+            const planKey = document.getElementById('clientPlan').value;
+            const plano = PLANOS[planKey];
+            const name = document.getElementById('clientName').value.trim();
+            const whatsapp = document.getElementById('clientWhatsapp').value.trim();
+            
+            if (!name) {
+                showToast('Nome do cliente é obrigatório.', 'error');
+                return;
+            }
+            
+            const registrationDate = new Date(document.getElementById('clientDate').value + 'T00:00:00');
+            const trialActive = document.getElementById('trialActive').checked;
+            const trialStartDate = trialActive ? document.getElementById('trialStartDate').value : null;
+            const trialEndDate = trialActive ? document.getElementById('trialEndDate').value : null;
+
+            if (trialActive && (!trialStartDate || !trialEndDate)) {
+                showToast('Datas do teste grátis são obrigatórias.', 'error');
+                return;
+            }
+
+            const data = {
+                name: name,
+                whatsapp: whatsapp,
+                plan: planKey,
+                planName: plano.nome,
+                installationFee: plano.instalacao,
+                monthlyFee: plano.mensalidade,
+                registrationDate: firebase.firestore.Timestamp.fromDate(registrationDate),
+                isBonus: plano.isBonus || false,
+                mesesInclusos: plano.mesesInclusos || 0,
+                trialActive: trialActive,
+                trialStartDate: trialStartDate,
+                trialEndDate: trialEndDate,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            // Se for plano bônus, gerar automaticamente os pagamentos dos meses inclusos
+            if (plano.isBonus && plano.mesesInclusos > 0 && !trialActive) {
+                const bonusPayments = [];
+                for (let i = 1; i <= plano.mesesInclusos; i++) {
+                    const paymentDate = new Date(registrationDate);
+                    paymentDate.setMonth(paymentDate.getMonth() + i);
+                    const monthKey = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}`;
+                    bonusPayments.push({
+                        monthKey: monthKey,
+                        month: paymentDate.getMonth() + 1,
+                        year: paymentDate.getFullYear(),
+                        amount: plano.mensalidade,
+                        status: 'paid',
+                        paidAt: firebase.firestore.Timestamp.fromDate(paymentDate),
+                        isBonusPayment: true
+                    });
+                }
+                data.payments = bonusPayments;
+                data.installationPaid = true;
+            }
+
+            const editId = document.getElementById('editingClientId').value;
+            try {
+                if (editId) {
+                    const existing = await db.collection('clients').doc(editId).get();
+                    if (!plano.isBonus && !trialActive) {
+                        data.payments = existing.data()?.payments || [];
+                        data.installationPaid = existing.data()?.installationPaid || false;
+                    }
+                    data.createdAt = existing.data()?.createdAt;
+                    await db.collection('clients').doc(editId).update(data);
+                } else {
+                    data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    if (!plano.isBonus && !trialActive) {
+                        data.payments = [];
+                        data.installationPaid = false;
+                    }
+                    await db.collection('clients').add(data);
+                }
+
+                clientModal.classList.remove('active');
+                showToast(trialActive ? '✅ Cliente salvo com 7 dias grátis!' : '✅ Cliente salvo com sucesso!', 'success');
+            } catch (e) {
+                console.error('Erro ao salvar cliente:', e);
+                showToast('Erro ao salvar cliente. Tente novamente.', 'error');
+            }
+        });
+
+        // Filtros
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderTable();
+            updateStats();
+        });
+        document.getElementById('filterStatus').addEventListener('change', (e) => {
+            currentFilter = e.target.value;
+            renderTable();
+            updateStats();
+        });
+
+        // Fechar modais com ESC
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal-overlay.active, .confirm-overlay.active').forEach(el => el.classList.remove('active'));
+            }
+        });
+
+        // Fechar modais ao clicar fora
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('active');
+                }
+            });
+        });
+
+        console.log('🚀 SGClient Admin v2.0 - AgendaFull (com Teste Grátis 7 Dias)');
+    </script>
+</body>
+</html>
